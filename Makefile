@@ -4,7 +4,7 @@ PYTHON ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 
 .PHONY: help venv install backend-install frontend-install db-up db-down db-init db-seed \
-	demo-papers dev-backend dev-frontend test test-integration build lint typecheck clean
+	demo-papers scifact-data scifact-eval dev-backend dev-frontend test test-integration build lint typecheck clean
 
 help:
 	@echo "AEGIS targets:"
@@ -14,6 +14,8 @@ help:
 	@echo "  make db-init          Create schema AEGIS and all tables/indexes"
 	@echo "  make db-seed          Insert the synthetic demo evidence document"
 	@echo "  make demo-papers      Download the two arXiv PDFs and ingest them as evidence"
+	@echo "  make scifact-data     Download the SciFact dataset (CC BY-NC 2.0)"
+	@echo "  make scifact-eval     Import SciFact and run a 100-claim held-out evaluation"
 	@echo "  make dev-backend      Run FastAPI on http://localhost:8000"
 	@echo "  make dev-frontend     Run Next.js on http://localhost:3000"
 	@echo "  make test             Unit + API tests (Db2 integration skips)"
@@ -55,6 +57,12 @@ db-seed:
 
 demo-papers:
 	bash scripts/fetch_demo_papers.sh
+
+scifact-data:
+	bash scripts/download_scifact.sh
+
+scifact-eval:
+	$(PYTHON) experiments/run_scifact_eval.py --import --limit 100
 
 dev-backend:
 	cd backend && ../$(PYTHON) -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000

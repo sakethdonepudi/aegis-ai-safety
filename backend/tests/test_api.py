@@ -268,7 +268,7 @@ def test_export_rejects_unknown_format(client):
 def test_evaluation_empty_state(client, monkeypatch, tmp_path):
     from app.api.routes import evaluation as evaluation_routes
 
-    monkeypatch.setattr(evaluation_routes, "RESULTS_FILE", tmp_path / "missing.json")
+    monkeypatch.setattr(evaluation_routes, "RESULTS_FILES", [tmp_path / "missing.json"])
     response = client.get("/api/evaluation")
     assert response.status_code == 200
     body = response.json()
@@ -283,7 +283,7 @@ def test_evaluation_completed_state(client, monkeypatch, tmp_path):
     results_file.write_text(
         '{"classification": {"macro_f1": 0.42, "n": 300}}', encoding="utf-8"
     )
-    monkeypatch.setattr(evaluation_routes, "RESULTS_FILE", results_file)
+    monkeypatch.setattr(evaluation_routes, "RESULTS_FILES", [results_file])
     response = client.get("/api/evaluation")
     assert response.status_code == 200
     body = response.json()

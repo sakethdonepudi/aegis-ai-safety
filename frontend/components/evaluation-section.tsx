@@ -22,6 +22,7 @@ interface ClassificationMetrics {
     string,
     { precision?: number; recall?: number; f1?: number; support?: number }
   >;
+  confusion_matrix?: Record<string, Record<string, number>>;
 }
 
 interface EvaluationResults {
@@ -90,6 +91,36 @@ export function EvaluationSection({ evaluation }: { evaluation: EvaluationData |
                 </tbody>
               </table>
             </div>
+
+            {results.classification?.confusion_matrix ? (
+              <div>
+                <p className="eyebrow mb-2">Confusion matrix (gold rows / predicted columns)</p>
+                <div className="overflow-x-auto rounded-md border border-border">
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="bg-panel-2 font-mono text-[9px] uppercase tracking-wider text-muted">
+                      <tr>
+                        <th className="px-3 py-2">Gold</th>
+                        {Object.keys(results.classification.confusion_matrix).map((label) => (
+                          <th key={label} className="px-3 py-2">{label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {Object.entries(results.classification.confusion_matrix).map(([gold, row]) => (
+                        <tr key={gold}>
+                          <td className="px-3 py-2 font-mono text-fg">{gold}</td>
+                          {Object.keys(results.classification?.confusion_matrix ?? {}).map((label) => (
+                            <td key={label} className="px-3 py-2 tabular-nums">
+                              {row[label] ?? 0}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-md border border-border bg-panel-2/40 px-3.5 py-3">

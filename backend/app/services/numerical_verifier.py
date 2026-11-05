@@ -10,7 +10,7 @@ scope.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from app.models.domain import PassageCandidate
 
@@ -60,6 +60,7 @@ class NumericCheckResult:
     summary: str | None
     discrepancies: list[str]
     matches: list[str]
+    discrepant_passage_ids: list[int] = field(default_factory=list)
 
     @property
     def has_discrepancy(self) -> bool:
@@ -132,6 +133,7 @@ def check_numerics(claim_text: str, passages: list[PassageCandidate]) -> Numeric
     lines: list[str] = []
     discrepancies: list[str] = []
     matches: list[str] = []
+    discrepant_passage_ids: list[int] = []
     for claim in claim_mentions:
         same_unit = [item for item in evidence_mentions if item.unit == claim.unit]
         if not same_unit:
@@ -162,9 +164,17 @@ def check_numerics(claim_text: str, passages: list[PassageCandidate]) -> Numeric
             )
             lines.append(line)
             discrepancies.append(line)
+            for item in candidates:
+                if item.passage_id is not None and item.passage_id not in discrepant_passage_ids:
+                    discrepant_passage_ids.append(item.passage_id)
 
     summary = "Deterministic numeric check: " + " ".join(lines) if lines else None
-    return NumericCheckResult(summary=summary, discrepancies=discrepancies, matches=matches)
+    return NumericCheckResult(
+        summary=summary,
+        discrepancies=discrepancies,
+        matches=matches,
+        discrepant_passage_ids=discrepant_passage_ids,
+    )
 
 
 def analyze_numerics(claim_text: str, passages: list[PassageCandidate]) -> str | None:

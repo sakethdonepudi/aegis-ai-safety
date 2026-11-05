@@ -1,19 +1,21 @@
-# Experiments — Evaluation Foundation
+# Experiments — SciFact Evaluation
 
-This directory prepares reproducible SciFact evaluation. **No benchmark has been run,
-and no result is reported here.**
+Reproducible SciFact evaluation for AEGIS. The adapter, Db2 import, retrieval
+evaluation, verifier predictions, and metrics are implemented. The latest measured run
+is stored under `experiments/results/`.
 
 ## Dataset: SciFact
 
 - **Source:** https://github.com/allenai/scifact and
   https://huggingface.co/datasets/allenai/scifact
-- **Version:** HuggingFace `allenai/scifact`; record the exact revision/commit when
-  downloading for a frozen evaluation. Split sizes: 1,261 train / 450 validation /
-  300 test claims; 5,183 corpus abstracts.
+- **Archive:** https://scifact.s3-us-west-2.amazonaws.com/release/latest/data.tar.gz
 - **License:** **CC BY-NC 2.0** (https://creativecommons.org/licenses/by-nc/2.0/).
-  The dataset is not redistributed in this repository and must not be used commercially.
-- **Citation:** Wadden et al. (2020), *Fact or Fiction: Verifying Scientific Claims*,
-  EMNLP 2020.
+  The dataset is not redistributed and must not be used commercially.
+- **Corpus:** 5,183 abstracts.
+- **Splits:** 1,261 train / 300 dev / 300 test claims in this release.
+- **Evaluation split:** the official **test** split does not publish evidence labels,
+  so the **dev** split (300 labelled claims) is used as the held-out labelled set.
+  AEGIS never trains on SciFact.
 - **Labels:** `SUPPORT` → `SUPPORTED`, `CONTRADICT` → `CONTRADICTED`, `NEI` →
   `INSUFFICIENT_EVIDENCE`.
 
@@ -23,55 +25,64 @@ Manifest: [`scifact_manifest.json`](scifact_manifest.json).
 
 | File | Purpose |
 | --- | --- |
-| `scifact_loader.py` | Load official JSONL/JSON claims exports; derive labels and cited docs |
+| `scifact_loader.py` | Load corpus and claim JSONL/JSON; derive labels and cited docs |
+| `scifact_adapter.py` | Convert abstracts into Db2 documents with external IDs |
+| `retrieval_eval.py` | Full-corpus BM25 index loaded from Db2 |
+| `run_scifact_eval.py` | Import, retrieve, verify, checkpoint predictions, compute metrics |
 | `metrics.py` | Macro F1, per-class precision/recall, confusion matrix, FP analysis, Recall@K, latency |
-| `benchmark.py` | Canonical benchmark entry point |
-| `evaluate.py` | Evaluation CLI that computes metrics from a predictions file |
-| `tests/test_metrics.py` | Unit tests with synthetic arrays only |
+| `benchmark.py` | Alias entry point for metrics from an existing predictions file |
+| `evaluate.py` | Metrics CLI |
+| `profile_pipeline.py` | Per-stage pipeline profiling |
+| `tests/test_metrics.py` | Metric unit tests |
 
-## Prediction format
-
-```json
-[
-  {
-    "claim_id": "3",
-    "predicted_label": "SUPPORTED",
-    "retrieved_doc_ids": [14717500],
-    "latency_ms": 812.5
-  }
-]
-```
-
-JSONL is also accepted. `predicted_label` must be one of `SUPPORTED`,
-`CONTRADICTED`, `INSUFFICIENT_EVIDENCE` (case-insensitive). `VERIFICATION_ERROR`
-records should be excluded or reported separately.
-
-## Run
+## Run the evaluation
 
 ```bash
-# 1. Download SciFact separately (license acceptance required), e.g.:
-#    https://github.com/allenai/scifact
-# 2. Export claims_test.jsonl in the official format.
-# 3. Produce predictions through the AEGIS pipeline (adapter not yet implemented).
-python experiments/benchmark.py \
-  --claims data/scifact/claims_test.jsonl \
-  --predictions experiments/predictions/scifact_test_predictions.json \
-  --output experiments/results/scifact_test_metrics.json
+make scifact-data          # downloads SciFact separately (license: CC BY-NC 2.0)
+python experiments/run_scifact_eval.py --import --limit 100 --model qwen2.5:7b-instruct
 ```
 
-`experiments/evaluate.py` accepts the same arguments if you prefer that entry point.
+The runner:
 
-The script exits with an error and writes nothing if inputs are missing. It never
-invents or caches scores.
+1. imports all 5,183 abstracts into Db2 (`source_type='scifact'`, external IDs preserved);
+2. loads dataset passages from Db2 and builds a full-corpus BM25 index;
+3. retrieves top-10 passages per claim without using gold labels;
+4. passes only the claim and top 4 retrieved passages to the verifier;
+5. writes predictions incrementally (resumable);
+6. scores macro F1, per-class precision/recall, confusion matrix, false positives,
+   retrieval Recall@1/5/10, and latency.
 
-## Current gap
+`--limit 0` evaluates all 300 labelled dev claims. A nonzero limit creates a
+deterministic balanced subset and is reported explicitly; do not present subset results
+as full-split results.
 
-The SciFact → AEGIS corpus adapter (building a Db2 evidence document per abstract and
-mapping `cited_doc_ids` to `document_id`) is not implemented. Until it exists, there
-are no legitimate AEGIS predictions to score. This is deliberate: no benchmark claim
-without an executed run.
+### Prediction format
+
+JSONL records include:
+
+```json
+{"claim_id":"3","predicted_label":"SUPPORTED","retrieved_doc_ids":[123],
+ "evidence_passage_ids":[45],"retrieval_ms":170.2,"verification_ms":41000,
+ "latency_ms":41170.2,"numerical_analysis":null}
+```
+
+Gold labels are stored only in the evaluation split and are joined at scoring time;
+they are never passed to retrieval or the verifier.
+
+## Latest results
+
+See [`results/scifact_dev_metrics.json`](results/scifact_dev_metrics.json) and
+[`predictions/scifact_dev_predictions.jsonl`](predictions/scifact_dev_predictions.jsonl).
+The report includes the model, subset size, coverage, errors, and settings.
+
+## Performance
+
+`python experiments/profile_pipeline.py` records PDF processing, claim extraction, Db2
+retrieval, LLM verification, and persistence separately. See
+[`docs/performance.md`](../docs/performance.md).
 
 ## Separation from the demo
 
-`data/samples/` contains a fictional SolarCell-X demonstration. Its output is not
-SciFact performance and must never be presented as such.
+`data/samples/` contains a fictional SolarCell-X demo and a synthetic paper-demo
+summary. Those outcomes are not SciFact performance and must never be presented as
+such.

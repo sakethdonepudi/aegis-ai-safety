@@ -74,7 +74,7 @@ class Db2Repository:
                 connection,
                 (
                     "SELECT D.DOCUMENT_ID, D.TITLE, D.FILENAME, D.CONTENT_HASH, D.SOURCE_TYPE, "
-                    "D.PROCESSING_STATUS, D.CREATED_AT, "
+                    "D.EXTERNAL_ID, D.PROCESSING_STATUS, D.CREATED_AT, "
                     "(SELECT COUNT(*) FROM PASSAGES P WHERE P.DOCUMENT_ID = D.DOCUMENT_ID) AS PASSAGE_COUNT "
                     "FROM DOCUMENTS D WHERE D.CONTENT_HASH = ? FETCH FIRST 1 ROW ONLY"
                 ),
@@ -90,15 +90,16 @@ class Db2Repository:
         content_hash: str,
         source_type: str,
         passages: Iterable[tuple[str, int | None, int | None, int | None]],
+        external_id: str | None = None,
     ) -> dict[str, Any]:
         with transaction() as connection:
             document_id = insert_returning_id(
                 connection,
                 (
-                    "INSERT INTO DOCUMENTS (TITLE, FILENAME, CONTENT_HASH, SOURCE_TYPE, PROCESSING_STATUS) "
-                    "VALUES (?, ?, ?, ?, 'READY')"
+                    "INSERT INTO DOCUMENTS (TITLE, FILENAME, CONTENT_HASH, SOURCE_TYPE, EXTERNAL_ID, "
+                    "PROCESSING_STATUS) VALUES (?, ?, ?, ?, ?, 'READY')"
                 ),
-                (title, filename, content_hash, source_type),
+                (title, filename, content_hash, source_type, external_id),
             )
             count = 0
             for index, (text, page_number, char_start, char_end) in enumerate(passages):
@@ -122,12 +123,14 @@ class Db2Repository:
             "filename": filename,
             "content_hash": content_hash,
             "source_type": source_type,
+            "external_id": external_id,
             "processing_status": "READY",
             "passage_count": count,
             "created_at": rows[0]["created_at"],
         }
 
-    def list_documents(self, limit: int = 50) -> list[dict]:
+    def list_documents(self, limit: int = 50, *, include_datasets: bool = False) -> list[dict]:
+        where = "" if include_datasets else "WHERE D.SOURCE_TYPE <> 'scifact' "
         with transaction() as connection:
             return query_all(
                 connection,
@@ -135,7 +138,7 @@ class Db2Repository:
                     "SELECT D.DOCUMENT_ID, D.TITLE, D.FILENAME, D.SOURCE_TYPE, D.PROCESSING_STATUS, "
                     "D.CREATED_AT, "
                     "(SELECT COUNT(*) FROM PASSAGES P WHERE P.DOCUMENT_ID = D.DOCUMENT_ID) AS PASSAGE_COUNT "
-                    f"FROM DOCUMENTS D ORDER BY D.CREATED_AT DESC FETCH FIRST {int(limit)} ROWS ONLY"
+                    f"FROM DOCUMENTS D {where}ORDER BY D.CREATED_AT DESC FETCH FIRST {int(limit)} ROWS ONLY"
                 ),
             )
 
@@ -144,8 +147,8 @@ class Db2Repository:
             rows = query_all(
                 connection,
                 (
-                    "SELECT DOCUMENT_ID, TITLE, FILENAME, CONTENT_HASH, SOURCE_TYPE, PROCESSING_STATUS, CREATED_AT "
-                    "FROM DOCUMENTS WHERE DOCUMENT_ID = ?"
+                    "SELECT DOCUMENT_ID, TITLE, FILENAME, CONTENT_HASH, SOURCE_TYPE, EXTERNAL_ID, "
+                    "PROCESSING_STATUS, CREATED_AT FROM DOCUMENTS WHERE DOCUMENT_ID = ?"
                 ),
                 (document_id,),
             )
@@ -166,22 +169,124 @@ class Db2Repository:
         return document
 
     # --------------------------------------------------------- retrieval input
-    def candidate_passages(self, document_ids: list[int], tokens: list[str], limit: int = 500) -> list[PassageCandidate]:
-        if not document_ids or not tokens:
+    def candidate_passages(
+        self,
+        document_ids: list[int] | None,
+        tokens: list[str],
+        limit: int = 500,
+        source_type: str | None = None,
+    ) -> list[PassageCandidate]:
+        if (document_ids is not None and not document_ids) or not tokens:
             return []
-        document_placeholders = ",".join("?" for _ in document_ids)
+        conditions: list[str] = []
+        params: list[Any] = []
+        if document_ids is not None:
+            placeholders = ",".join("?" for _ in document_ids)
+            conditions.append(f"P.DOCUMENT_ID IN ({placeholders})")
+            params.extend(document_ids)
+        if source_type:
+            conditions.append("D.SOURCE_TYPE = ?")
+            params.append(source_type)
         token_clauses = " OR ".join("LOWER(P.PASSAGE_TEXT) LIKE ?" for _ in tokens)
-        params: list[Any] = list(document_ids)
+        conditions.append(f"({token_clauses})")
         params.extend(f"%{token}%" for token in tokens)
+        where = " AND ".join(conditions)
         sql = (
             "SELECT P.PASSAGE_ID, P.DOCUMENT_ID, P.PASSAGE_TEXT, P.PAGE_NUMBER, P.PASSAGE_INDEX, "
             "D.TITLE AS DOCUMENT_TITLE, D.FILENAME "
             "FROM PASSAGES P JOIN DOCUMENTS D ON D.DOCUMENT_ID = P.DOCUMENT_ID "
-            f"WHERE P.DOCUMENT_ID IN ({document_placeholders}) AND ({token_clauses}) "
+            f"WHERE {where} "
             f"ORDER BY P.DOCUMENT_ID, P.PASSAGE_INDEX FETCH FIRST {int(limit)} ROWS ONLY"
         )
         with transaction() as connection:
             rows = query_all(connection, sql, params)
+        return [
+            PassageCandidate(
+                passage_id=int(row["passage_id"]),
+                document_id=int(row["document_id"]),
+                document_title=row["document_title"],
+                filename=row["filename"],
+                passage_text=row["passage_text"],
+                page_number=row["page_number"],
+                passage_index=int(row["passage_index"]),
+            )
+            for row in rows
+        ]
+
+    def bulk_import_documents(self, documents: list[dict[str, Any]]) -> dict[str, Any]:
+        """Insert dataset documents in one transaction, skipping existing hashes.
+
+        Each item: external_id, title, filename, content_hash, source_type,
+        passages: [(text, page_number, char_start, char_end), ...].
+        """
+        with transaction() as connection:
+            existing_hashes = {
+                row["content_hash"].strip()
+                for row in query_all(connection, "SELECT CONTENT_HASH FROM DOCUMENTS")
+            }
+            imported = skipped = passage_count = 0
+            for document in documents:
+                if document["content_hash"] in existing_hashes:
+                    skipped += 1
+                    continue
+                document_id = insert_returning_id(
+                    connection,
+                    (
+                        "INSERT INTO DOCUMENTS (TITLE, FILENAME, CONTENT_HASH, SOURCE_TYPE, EXTERNAL_ID, "
+                        "PROCESSING_STATUS) VALUES (?, ?, ?, ?, ?, 'READY')"
+                    ),
+                    (
+                        document["title"],
+                        document["filename"],
+                        document["content_hash"],
+                        document["source_type"],
+                        document.get("external_id"),
+                    ),
+                )
+                existing_hashes.add(document["content_hash"])
+                for index, (text, page_number, char_start, char_end) in enumerate(
+                    document["passages"]
+                ):
+                    insert_returning_id(
+                        connection,
+                        (
+                            "INSERT INTO PASSAGES (DOCUMENT_ID, PASSAGE_TEXT, PAGE_NUMBER, PASSAGE_INDEX, "
+                            "CHAR_START, CHAR_END) VALUES (?, ?, ?, ?, ?, ?)"
+                        ),
+                        (document_id, text, page_number, index, char_start, char_end),
+                    )
+                    passage_count += 1
+                imported += 1
+        return {"imported": imported, "skipped": skipped, "passages": passage_count}
+
+    def external_id_map(self, source_type: str) -> dict[int, int]:
+        with transaction() as connection:
+            rows = query_all(
+                connection,
+                "SELECT EXTERNAL_ID, DOCUMENT_ID FROM DOCUMENTS WHERE SOURCE_TYPE = ?",
+                (source_type,),
+            )
+        mapping: dict[int, int] = {}
+        for row in rows:
+            try:
+                mapping[int(row["external_id"])] = int(row["document_id"])
+            except (TypeError, ValueError):
+                continue
+        return mapping
+
+    def passages_for_source(self, source_type: str) -> list[PassageCandidate]:
+        """Load all passages for a dataset source in one Db2 query."""
+        with transaction() as connection:
+            rows = query_all(
+                connection,
+                (
+                    "SELECT P.PASSAGE_ID, P.DOCUMENT_ID, P.PASSAGE_TEXT, P.PAGE_NUMBER, P.PASSAGE_INDEX, "
+                    "D.TITLE AS DOCUMENT_TITLE, D.FILENAME "
+                    "FROM PASSAGES P JOIN DOCUMENTS D ON D.DOCUMENT_ID = P.DOCUMENT_ID "
+                    "WHERE D.SOURCE_TYPE = ? ORDER BY P.PASSAGE_ID"
+                ),
+                (source_type,),
+            )
         return [
             PassageCandidate(
                 passage_id=int(row["passage_id"]),

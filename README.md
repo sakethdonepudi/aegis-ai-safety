@@ -288,7 +288,7 @@ data/samples/      Synthetic evidence and the paper-demo response
 scripts/           fetch_demo_papers.sh (downloads the arXiv PDFs)
 experiments/       SciFact loader, benchmark, metrics, evaluation CLI, manifest
 research/          Problem statement, research questions, hypotheses, methodology
-docs/              Architecture, API, demo, macOS setup, security, deployment, limitations
+docs/              Architecture, API, demo, macOS setup, security, deployment, performance, limitations
 .github/workflows/ CI (unit/build) + manual Db2 integration workflow
 ```
 
@@ -310,6 +310,9 @@ Tested in this build environment:
 - Local Ollama `qwen2.5:7b-instruct` paper demo: 4 claims with 1 supported, 2 contradicted (one deterministic numeric conflict), and 1 insufficient evidence
 - JSON and Markdown export generation
 - Db2 schema migration from the previous schema revision
+- Stage profiling: LLM verification dominated (~86% baseline); concise output reduced
+  the measured four-claim profile from 212 s to 90 s without changing classifications
+  (see [docs/performance.md](docs/performance.md))
 
 Not tested here, and therefore not claimed:
 

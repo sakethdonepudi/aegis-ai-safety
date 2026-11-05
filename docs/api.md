@@ -282,7 +282,12 @@ Returns measured SciFact metrics only if a real result file exists at
 }
 ```
 
-No placeholder accuracy is generated.
+No SciFact benchmark has been executed yet in this run. The evaluation view shows an
+explicit empty state until `experiments/results/scifact_dev_metrics.json` exists.
+
+`GET /api/evaluation` reads a real result file if present, preferring
+`scifact_test_metrics.json`, then `scifact_dev_metrics.json`; otherwise it returns an
+explicit `not_run` state.
 
 ## Limits and security
 

@@ -16,14 +16,16 @@ from app.schemas.verification import EvaluationResponse
 
 router = APIRouter(prefix="/api/evaluation", tags=["evaluation"])
 
-RESULTS_FILE = (
-    Path(__file__).resolve().parents[4] / "experiments" / "results" / "scifact_test_metrics.json"
-)
+RESULTS_FILES = [
+    Path(__file__).resolve().parents[4] / "experiments" / "results" / "scifact_test_metrics.json",
+    Path(__file__).resolve().parents[4] / "experiments" / "results" / "scifact_dev_metrics.json",
+]
 
 
 @router.get("", response_model=EvaluationResponse)
 def get_evaluation() -> EvaluationResponse:
-    if not RESULTS_FILE.exists():
+    results_file = next((path for path in RESULTS_FILES if path.exists()), None)
+    if results_file is None:
         return EvaluationResponse(
             status="not_run",
             message=(
@@ -32,7 +34,7 @@ def get_evaluation() -> EvaluationResponse:
             ),
         )
     try:
-        results = json.loads(RESULTS_FILE.read_text(encoding="utf-8"))
+        results = json.loads(results_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return EvaluationResponse(
             status="error",
@@ -40,6 +42,6 @@ def get_evaluation() -> EvaluationResponse:
         )
     return EvaluationResponse(
         status="completed",
-        message="Metrics loaded from the executed SciFact evaluation run.",
+        message=f"Metrics loaded from {results_file.name}.",
         results=results,
     )
