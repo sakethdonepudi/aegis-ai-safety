@@ -13,6 +13,7 @@ class DocumentResponse(BaseModel):
     filename: str
     content_hash: str
     source_type: str
+    processing_status: str = "READY"
     passage_count: int
     created_at: datetime
     already_existed: bool = False
@@ -23,8 +24,24 @@ class DocumentSummary(BaseModel):
     title: str
     filename: str
     source_type: str
+    processing_status: str = "READY"
     passage_count: int
     created_at: datetime
+
+
+class PassageSummary(BaseModel):
+    passage_id: int
+    document_id: int
+    passage_text: str
+    page_number: int | None = None
+    passage_index: int
+    char_start: int | None = None
+    char_end: int | None = None
+
+
+class DocumentDetail(DocumentSummary):
+    content_hash: str
+    passages: list[PassageSummary] = Field(default_factory=list)
 
 
 class DocumentListResponse(BaseModel):

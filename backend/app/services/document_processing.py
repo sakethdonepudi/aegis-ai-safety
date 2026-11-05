@@ -31,7 +31,9 @@ class ProcessedDocument:
     filename: str
     content_hash: str
     source_type: str
-    passages: list[tuple[str, int | None]]
+    # (text, page_number, char_start, char_end); offsets are within the page
+    # text for PDFs and within the full text for plain text.
+    passages: list[tuple[str, int | None, int | None, int | None]]
 
 
 def sanitize_filename(filename: str) -> str:
@@ -49,15 +51,7 @@ def _clean(text: str) -> str:
     return "\n".join(line for line in lines if line)
 
 
-def chunk_text(text: str, target_chars: int = 1200, overlap_chars: int = 120) -> list[str]:
-    """Split prose into overlapping, sentence-aware passages.
-
-    Chunks stay well below the Db2 VARCHAR limit and never cut in the middle of
-    a word unless a single sentence is itself longer than the target.
-    """
-    cleaned = _clean(text)
-    if not cleaned:
-        return []
+def _chunk_cleaned(cleaned: str, target_chars: int, overlap_chars: int) -> list[str]:
     paragraphs = [p.strip() for p in re.split(r"\n{2,}", cleaned) if p.strip()]
     if not paragraphs:
         paragraphs = [cleaned]
@@ -85,9 +79,38 @@ def chunk_text(text: str, target_chars: int = 1200, overlap_chars: int = 120) ->
                 current = f"{tail} {sentence}".strip()
     if current.strip():
         chunks.append(current.strip())
-
-    # Guarantee the storage contract even for unusual input.
     return [truncate_bytes(chunk, 3900) for chunk in chunks if chunk.strip()]
+
+
+def chunk_text(text: str, target_chars: int = 1200, overlap_chars: int = 120) -> list[str]:
+    """Split prose into overlapping, sentence-aware passages."""
+    cleaned = _clean(text)
+    if not cleaned:
+        return []
+    return _chunk_cleaned(cleaned, target_chars, overlap_chars)
+
+
+def chunk_text_with_offsets(
+    text: str, target_chars: int = 1200, overlap_chars: int = 120
+) -> list[tuple[str, int | None, int | None]]:
+    """Return passages with approximate character offsets in the cleaned input."""
+    cleaned = _clean(text)
+    if not cleaned:
+        return []
+    chunks = _chunk_cleaned(cleaned, target_chars, overlap_chars)
+    results: list[tuple[str, int | None, int | None]] = []
+    cursor = 0
+    for chunk in chunks:
+        start = cleaned.find(chunk, max(0, cursor - overlap_chars))
+        if start == -1:
+            start = cleaned.find(chunk)
+        if start == -1:
+            results.append((chunk, None, None))
+            continue
+        end = start + len(chunk)
+        results.append((chunk, start, end))
+        cursor = end
+    return results
 
 
 def process_pdf(data: bytes, filename: str, title: str | None = None) -> ProcessedDocument:
@@ -106,7 +129,7 @@ def process_pdf(data: bytes, filename: str, title: str | None = None) -> Process
         document.close()
         raise DocumentProcessingError("Encrypted PDFs are not supported.")
 
-    passages: list[tuple[str, int | None]] = []
+    passages: list[tuple[str, int | None, int | None, int | None]] = []
     extracted_pages = 0
     try:
         for page_number, page in enumerate(document, start=1):
@@ -114,8 +137,8 @@ def process_pdf(data: bytes, filename: str, title: str | None = None) -> Process
             if len(page_text.strip()) < 20:
                 continue
             extracted_pages += 1
-            for chunk in chunk_text(page_text):
-                passages.append((chunk, page_number))
+            for chunk, start, end in chunk_text_with_offsets(page_text):
+                passages.append((chunk, page_number, start, end))
     finally:
         document.close()
 
@@ -140,7 +163,7 @@ def process_text(data: bytes, filename: str = "pasted-evidence.txt", title: str 
     except UnicodeDecodeError:
         text = data.decode("latin-1", errors="replace")
     safe_name = sanitize_filename(filename)
-    chunks = chunk_text(text)
+    chunks = chunk_text_with_offsets(text)
     if not chunks:
         raise DocumentProcessingError("The provided evidence text is empty.")
     stem = PurePath(safe_name).stem or "evidence"
@@ -149,11 +172,13 @@ def process_text(data: bytes, filename: str = "pasted-evidence.txt", title: str 
         filename=safe_name,
         content_hash=content_hash(data),
         source_type="text",
-        passages=[(chunk, 1) for chunk in chunks],
+        passages=[(chunk, 1, start, end) for chunk, start, end in chunks],
     )
 
 
-def process_upload(filename: str, content_type: str | None, data: bytes) -> ProcessedDocument:
+def process_upload(
+    filename: str, content_type: str | None, data: bytes, title: str | None = None
+) -> ProcessedDocument:
     if not data:
         raise UploadValidationError("The uploaded file is empty.")
     suffix = PurePath(filename or "").suffix.lower()
@@ -167,6 +192,6 @@ def process_upload(filename: str, content_type: str | None, data: bytes) -> Proc
     if suffix == ".pdf" or normalized_type == "application/pdf":
         if b"%PDF" not in data[:1024]:
             raise UploadValidationError("The file does not contain a valid PDF header.")
-        return process_pdf(data, filename)
+        return process_pdf(data, filename, title=title)
 
-    return process_text(data, filename or "evidence.txt")
+    return process_text(data, filename or "evidence.txt", title=title)

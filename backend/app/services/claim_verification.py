@@ -15,6 +15,7 @@ from app.models.domain import (
     PassageCandidate,
 )
 from app.services.llm import LLMClient, extract_json_object
+from app.services.numerical_verifier import check_numerics
 
 logger = logging.getLogger(__name__)
 
@@ -63,14 +64,14 @@ _WEAK_EXPLANATION = re.compile(
 
 def _format_passages(candidates: list[PassageCandidate]) -> str:
     blocks = []
-    budget = 14000
+    budget = 10000
     for candidate in candidates:
         header = (
             f"[PASSAGE ID {candidate.passage_id}] Document: {candidate.document_title}"
             f" | Page: {candidate.page_number if candidate.page_number is not None else 'n/a'}"
             f" | Retrieval score: {candidate.retrieval_score:.3f}"
         )
-        body = truncate(normalize_whitespace(candidate.passage_text), 2200)
+        body = truncate(normalize_whitespace(candidate.passage_text), 1800)
         block = f"{header}\n{body}"
         if budget - len(block) < 0:
             break
@@ -202,12 +203,48 @@ class ClaimVerificationService:
             if improved:
                 explanation = improved
 
+        numerical = (
+            check_numerics(
+                claim.original_claim,
+                [by_id[reference.passage_id] for reference in cited],
+            )
+            if cited
+            else None
+        )
+        numerical_analysis = numerical.summary if numerical else None
+        verification_method = "langchain_llm+db2_lexical_retrieval"
+
+        # Deterministic numeric consistency check. This only overrides the model
+        # when the claim states an explicit simple quantity, the cited passage
+        # states a different value for the same quantity, and no cited value
+        # matches. It never turns "not found" into a contradiction.
+        if (
+            numerical is not None
+            and numerical.has_discrepancy
+            and not numerical.matches
+            and classification in (Classification.SUPPORTED, Classification.INSUFFICIENT_EVIDENCE)
+        ):
+            classification = Classification.CONTRADICTED
+            explanation = (
+                "Deterministic numeric comparison found a conflict. "
+                + " ".join(numerical.discrepancies)
+                + " The model's original explanation was not used for this numerical claim "
+                "because it did not account for the cited value."
+            )
+            limitations = (
+                (limitations + " " if limitations else "")
+                + "The numeric check compares simple literal expressions and does not validate "
+                "advanced statistics or unit conversions."
+            ).strip()
+            verification_method = "langchain_llm+db2_lexical_retrieval+deterministic_numeric_check"
+
         return ClaimAssessment(
             classification=classification,
             explanation=truncate_bytes(explanation, 3900),
             limitations=truncate_bytes(limitations, 3900),
             evidence=cited,
-            verification_method="langchain_llm+db2_lexical_retrieval",
+            numerical_analysis=numerical_analysis,
+            verification_method=verification_method,
         )
 
     def _explain(self, claim: ExtractedClaim, passage: PassageCandidate) -> str | None:

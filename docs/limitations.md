@@ -12,11 +12,13 @@ and not a production-hardened service.
   reading of retrieved passages, not a formal entailment proof.
 - **One passage set per claim.** Retrieval can miss relevant evidence that uses
   different vocabulary. This produces `INSUFFICIENT_EVIDENCE`, not contradiction.
-- **No numeric or unit reasoning engine.** Numbers are preserved and compared by the
-  model; unit conversion, statistical significance, and table parsing are not
-  implemented.
-- **No citation verification.** AEGIS verifies claims against supplied evidence, not
-  whether a paper's external citations exist or say what is claimed.
+- **Narrow numeric checker.** The deterministic verifier covers only simple literal
+  expressions (percentages, BLEU, parameter/layer/head/GPU/day/word counts). It does not
+  parse tables, equations, units, confidence intervals, p-values, or advanced
+  statistics. A clear literal conflict can override an inconsistent model judgment, but
+  entity ambiguity can still cause mistakes.
+- No citation-existence verification (Crossref/DOI lookup is future P1 work). AEGIS
+  verifies claims against supplied evidence, not whether external citations exist.
 - **English-centric prompts and tokenizer.** Other languages are not evaluated.
 
 ## Retrieval
@@ -56,7 +58,12 @@ and not a production-hardened service.
 - CORS is explicit; production origins must be configured.
 - Hosted deployment requires a hosted Db2 with private networking. A local Db2 cannot
   back a public backend.
-- Request timeout is 300 seconds; long multi-claim documents can hit it.
+- Request timeout is 600 seconds by default; local 7B inference can take minutes for
+  four claims, and long documents can still hit the bound.
+- Reports (JSON/Markdown) and history have no authentication or access control. They are
+  intended for a local single-user deployment.
+- The paper demo downloads arXiv PDFs at setup time and does not commit them; offline
+  users must use the synthetic demo or supply their own PDFs.
 - Sessions are never deleted by the application; retention is a database operation.
 
 ## Evaluation
@@ -65,8 +72,9 @@ and not a production-hardened service.
 - The harness supports macro F1, per-class precision/recall, confusion matrix,
   false-positive analysis, retrieval Recall@K, and latency statistics.
 - **No benchmark has been executed.** No F1, accuracy, or latency number in this
-  repository should be read as a benchmark result.
-- Synthetic demo outcomes are not benchmark evidence.
+  repository should be read as a benchmark result. The Evaluation section shows an
+  explicit empty state when no result file exists.
+- Synthetic/paper demo outcomes are not benchmark evidence.
 - SciFact labels are SUPPORT / CONTRADICT / NEI, mapped to AEGIS's three substantive
   classes. `VERIFICATION_ERROR` is operational, not a gold label.
 

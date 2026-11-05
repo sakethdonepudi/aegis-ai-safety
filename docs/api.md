@@ -30,7 +30,7 @@ curl -s http://localhost:8000/health
 {
   "status": "ok",
   "service": "aegis-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "environment": "development",
   "llm_provider": "openai",
   "llm_model": "gpt-4o-mini",
@@ -112,6 +112,37 @@ Duplicates are detected by SHA-256 and return the existing document with
 
 Errors: `400 invalid_upload`, `422 document_processing_failed`.
 
+## GET /api/documents/{document_id}
+
+Returns document metadata plus every extracted passage, including page, sequence, and
+character offsets.
+
+```json
+{
+  "document_id": 2,
+  "title": "Paper title",
+  "filename": "paper.pdf",
+  "content_hash": "…",
+  "source_type": "pdf",
+  "processing_status": "READY",
+  "passage_count": 18,
+  "created_at": "2026-11-05T12:01:00",
+  "passages": [
+    {
+      "passage_id": 41,
+      "document_id": 2,
+      "passage_text": "…",
+      "page_number": 1,
+      "passage_index": 0,
+      "char_start": 0,
+      "char_end": 1200
+    }
+  ]
+}
+```
+
+`404 not_found` when the document does not exist.
+
 ## POST /api/verify
 
 Runs the full pipeline synchronously.
@@ -144,6 +175,8 @@ Response `200` (abbreviated):
   "status": "COMPLETED",
   "error_message": null,
   "created_at": "2026-11-05T12:02:00",
+  "completed_at": "2026-11-05T12:02:04",
+  "duration_ms": 4120,
   "counts": {
     "total": 2,
     "supported": 1,
@@ -162,6 +195,8 @@ Response `200` (abbreviated):
       "classification": "SUPPORTED",
       "explanation": "Passage 11 explicitly states 92% under standard test conditions.",
       "limitations": "Synthetic evidence; indoor measurement only.",
+      "numerical_analysis": "Deterministic numeric check: 92% matches passage 11.",
+      "human_review_status": "PENDING",
       "verification_method": "langchain_llm+db2_lexical_retrieval",
       "result_created_at": "2026-11-05T12:02:04",
       "evidence": [
@@ -173,6 +208,7 @@ Response `200` (abbreviated):
           "document_id": 1,
           "document_title": "Synthetic demo — SolarCell-X Controlled Efficiency Trial (fictional)",
           "filename": "synthetic_solarcell_study.txt",
+          "evidence_relationship": "SUPPORTS",
           "relevance_score": 8.731
         }
       ]
@@ -212,14 +248,47 @@ Returns recent sessions, newest first (default 25, max 100).
 
 ## GET /api/verifications/{session_id}
 
-Returns the full persisted session, claims, explanations, and evidence links. `404`
-when the session does not exist.
+Returns the full persisted session, claims, explanations, numeric checks, and evidence
+links. `404` when the session does not exist.
+
+## GET /api/verifications/{session_id}/export
+
+Download a report:
+
+```bash
+curl -OJ "http://localhost:8000/api/verifications/4/export?format=json"
+curl -OJ "http://localhost:8000/api/verifications/4/export?format=markdown"
+```
+
+- `format=json` → `application/json` attachment.
+- `format=markdown` (or `md`) → `text/markdown` attachment.
+
+The report includes session status, model/provider, timestamps, duration, counts,
+submitted text, claims, classifications, explanations, limitations, numeric checks,
+human-review status, evidence passages, and unresolved questions.
+
+## GET /api/evaluation
+
+Returns measured SciFact metrics only if a real result file exists at
+`experiments/results/scifact_test_metrics.json`:
+
+```json
+{
+  "status": "not_run",
+  "dataset": "SciFact",
+  "license": "CC BY-NC 2.0",
+  "message": "No SciFact benchmark has been executed…",
+  "results": null
+}
+```
+
+No placeholder accuracy is generated.
 
 ## Limits and security
 
 - Upload: 10 MB, text-based PDFs only (no OCR).
 - Submitted/pasted text: 30,000 characters.
-- Request timeout: 300 seconds.
+- Request timeout: 600 seconds by default (`AEGIS_REQUEST_TIMEOUT_SECONDS`).
 - CORS: `AEGIS_CORS_ORIGINS` only.
 - Parameterized SQL; no client-supplied SQL fragments.
 - Raw Db2 errors are logged server-side and never returned.

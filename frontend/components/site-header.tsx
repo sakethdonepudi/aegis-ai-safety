@@ -51,6 +51,9 @@ export function SiteHeader({ apiOnline, db, provider }: SiteHeaderProps) {
           <a className="transition-colors hover:text-fg" href="#method">
             Method
           </a>
+          <a className="transition-colors hover:text-fg" href="#evaluation">
+            Evaluation
+          </a>
         </nav>
 
         <div className="flex items-center gap-2">

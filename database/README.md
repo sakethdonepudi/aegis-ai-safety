@@ -47,6 +47,8 @@ python database/init_db.py --stats
 - validates the schema name;
 - creates schema `AEGIS` if missing;
 - applies `database/schema.sql` idempotently (ignores already-exists SQLCODEs);
+- adds missing columns for databases created by earlier AEGIS versions;
+- applies `database/indexes.sql`;
 - commits DDL explicitly;
 - prints row counts and confirms all six tables exist.
 
@@ -67,19 +69,34 @@ make db-seed
 This inserts only the clearly labelled synthetic evidence document. It does not insert
 verification results or expected classifications.
 
+For the real-paper demo:
+
+```bash
+make demo-papers
+```
+
+This downloads the two public arXiv PDFs (Attention and BERT) into the gitignored
+`data/samples/papers/` directory and ingests them with real page provenance. See
+[`data/README.md`](../data/README.md).
+
 ## Schema
 
-See [`schema.sql`](schema.sql) for exact Db2 types. Six tables:
+See [`schema.sql`](schema.sql) for exact Db2 types and [`indexes.sql`](indexes.sql) for
+indexes. Six tables:
 
-1. `DOCUMENTS` — evidence metadata and SHA-256 content hash.
-2. `PASSAGES` — chunked passage text with page and index.
-3. `VERIFICATION_SESSIONS` — submitted text, provider/model label, status, errors.
+1. `DOCUMENTS` — evidence metadata, SHA-256 content hash, processing status.
+2. `PASSAGES` — chunked passage text with page, sequence, and char offsets.
+3. `VERIFICATION_SESSIONS` — submitted text, provider/model, status, timestamps,
+   duration, and error summary.
 4. `CLAIMS` — atomic claims and source spans.
-5. `VERIFICATION_RESULTS` — constrained classification, explanation, limitations, method.
-6. `EVIDENCE_LINKS` — result ↔ passage links with retrieval score.
+5. `VERIFICATION_RESULTS` — constrained classification, explanation, limitations,
+   numeric analysis, method, and human-review status.
+6. `EVIDENCE_LINKS` — result ↔ passage links with relationship
+   (`SUPPORTS`/`CONTRADICTS`/`CONTEXT`) and retrieval score.
 
 Foreign keys enforce referential integrity with cascading deletes. Indexes cover
-document passage lookup, session claims, evidence links, and recent ordering.
+document/passage lookup, status filtering, session claims, evidence links, and recent
+ordering.
 
 ## Transactions and cleanup
 
@@ -107,3 +124,6 @@ in the application.
 - **Missing tables** — run `make db-init`.
 - **Schema appears empty** — the API sets `CURRENT SCHEMA AEGIS`; inspect with
   `SELECT * FROM AEGIS.DOCUMENTS`.
+- **Columns missing after an upgrade** — rerun `make db-init`; it applies idempotent
+  `ALTER TABLE` migrations for new columns.
+- **Demo papers missing** — run `make demo-papers` (requires network access to arXiv).

@@ -1,6 +1,8 @@
 import type {
   DbHealth,
+  DocumentDetail,
   DocumentSummary,
+  EvaluationData,
   UploadedDocument,
   Verification,
   VerificationSummary,
@@ -78,6 +80,14 @@ export function getDbHealth() {
 export async function getDocuments(): Promise<DocumentSummary[]> {
   const data = await request<{ documents: DocumentSummary[] }>("/api/documents");
   return data.documents;
+}
+
+export function getDocument(documentId: number): Promise<DocumentDetail> {
+  return request<DocumentDetail>(`/api/documents/${documentId}`);
+}
+
+export function getEvaluation(): Promise<EvaluationData> {
+  return request<EvaluationData>("/api/evaluation");
 }
 
 export async function uploadDocument(file: File, title?: string): Promise<UploadedDocument> {

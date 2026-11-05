@@ -12,10 +12,11 @@ Order of operations:
 from __future__ import annotations
 
 import logging
+import time
 
 from app.config_helpers import truncate_bytes
 from app.core.config import Settings, get_settings
-from app.core.errors import AegisError, LLMUnavailableError, NotFoundError, PipelineError
+from app.core.errors import AegisError, LLMUnavailableError, PipelineError
 from app.db.repository import Db2Repository
 from app.models.domain import SessionStatus
 from app.services.claim_extraction import ClaimExtractionService
@@ -66,11 +67,19 @@ class VerificationPipeline:
 
         provider_label = f"{self.settings.llm_provider}/{self.settings.llm_model}"
         session_id = self.repository.create_session(submitted_text, provider_label)
+        started = time.monotonic()
+
+        def duration_ms() -> int:
+            return int((time.monotonic() - started) * 1000)
 
         try:
             claims = self.extractor.extract(submitted_text)
             if not claims:
-                self.repository.set_session_status(session_id, SessionStatus.COMPLETED.value)
+                self.repository.set_session_status(
+                    session_id,
+                    SessionStatus.COMPLETED.value,
+                    duration_ms=duration_ms(),
+                )
                 logger.info("Session %s completed with no extractable claims", session_id)
                 return self.repository.get_session(session_id)
 
@@ -80,22 +89,27 @@ class VerificationPipeline:
                 assessment = self.verifier.verify(claim, candidates)
                 results.append((claim, assessment))
 
-            self.repository.save_results(session_id, results, status=SessionStatus.COMPLETED.value)
+            self.repository.save_results(
+                session_id,
+                results,
+                status=SessionStatus.COMPLETED.value,
+                duration_ms=duration_ms(),
+            )
             logger.info("Session %s completed with %d claims", session_id, len(claims))
             return self.repository.get_session(session_id)
         except LLMUnavailableError:
-            self.repository.set_session_status(
-                session_id, SessionStatus.FAILED.value, "The language model was unavailable."
+            self.repository.mark_session_failed(
+                session_id, "The language model was unavailable.", duration_ms()
             )
             raise
         except AegisError as exc:
-            self.repository.set_session_status(
-                session_id, SessionStatus.FAILED.value, truncate_bytes(exc.message, 1900)
+            self.repository.mark_session_failed(
+                session_id, truncate_bytes(exc.message, 1900), duration_ms()
             )
             raise
         except Exception as exc:
             logger.exception("Unexpected pipeline failure for session %s", session_id)
-            self.repository.set_session_status(
-                session_id, SessionStatus.FAILED.value, "An unexpected internal error occurred."
+            self.repository.mark_session_failed(
+                session_id, "An unexpected internal error occurred.", duration_ms()
             )
             raise PipelineError("The verification pipeline failed unexpectedly.") from exc

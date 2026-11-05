@@ -35,8 +35,10 @@ class DocumentService:
         result["already_existed"] = False
         return result
 
-    def ingest_upload(self, filename: str, content_type: str | None, data: bytes) -> dict:
-        processed = process_upload(filename, content_type, data)
+    def ingest_upload(
+        self, filename: str, content_type: str | None, data: bytes, title: str | None = None
+    ) -> dict:
+        processed = process_upload(filename, content_type, data, title=title)
         return self.ingest_processed(processed)
 
     def ingest_pasted(self, text: str, title: str | None = None) -> dict:

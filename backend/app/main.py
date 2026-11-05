@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.api.routes import documents, health, verifications
+from app.api.routes import documents, evaluation, health, verifications
 from app.core.config import get_settings
 from app.core.errors import AegisError
 
@@ -22,7 +22,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("aegis")
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 
 class RequestTimeoutMiddleware(BaseHTTPMiddleware):
@@ -124,6 +124,7 @@ def create_app() -> FastAPI:
     application.include_router(health.router)
     application.include_router(documents.router)
     application.include_router(verifications.router)
+    application.include_router(evaluation.router)
     return application
 
 

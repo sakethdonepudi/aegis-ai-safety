@@ -143,6 +143,14 @@ export function VerificationOverview({ verification, loading }: VerificationOver
             <span className="font-mono text-fg">{formatDate(verification?.created_at)}</span>
           </div>
           <div className="flex items-center justify-between gap-3">
+            <span className="text-muted">Duration</span>
+            <span className="font-mono text-fg">
+              {verification?.duration_ms != null
+                ? `${(verification.duration_ms / 1000).toFixed(1)} s`
+                : "—"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
             <span className="text-muted">Evidence store</span>
             <span className="flex items-center gap-1 font-mono text-fg">
               <Database className="h-3 w-3 text-accent" aria-hidden="true" />

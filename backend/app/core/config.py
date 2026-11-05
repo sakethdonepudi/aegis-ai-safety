@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     aegis_cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     aegis_max_upload_bytes: int = 10 * 1024 * 1024
     aegis_max_submitted_chars: int = 30_000
-    aegis_request_timeout_seconds: int = 300
+    aegis_request_timeout_seconds: int = 600
     aegis_retrieval_backend: str = "lexical"
 
     # --- IBM Db2 ---

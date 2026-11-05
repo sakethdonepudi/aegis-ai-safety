@@ -13,6 +13,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ClaimInspector } from "@/components/claim-inspector";
+import { EvaluationSection } from "@/components/evaluation-section";
 import { EvidenceSources } from "@/components/evidence-sources";
 import { HistoryPanel } from "@/components/history-panel";
 import { MethodSection } from "@/components/method-section";
@@ -20,9 +21,21 @@ import { ResearchInput } from "@/components/research-input";
 import { SiteHeader } from "@/components/site-header";
 import { VerificationOverview } from "@/components/verification-overview";
 import { Button } from "@/components/ui/button";
-import { API_BASE, ApiError, getDbHealth, getDocuments, getHealth, getVerification, getVerifications, uploadDocument, verifyResearch } from "@/lib/api";
-import { DEMO_EVIDENCE_TEXT, DEMO_EVIDENCE_TITLE, DEMO_RESEARCH_TEXT } from "@/lib/demo";
-import type { DbHealth, DocumentSummary, Verification, VerificationSummary } from "@/lib/types";
+import { API_BASE, ApiError, getDbHealth, getDocuments, getEvaluation, getHealth, getVerification, getVerifications, uploadDocument, verifyResearch } from "@/lib/api";
+import {
+  DEMO_EVIDENCE_TEXT,
+  DEMO_EVIDENCE_TITLE,
+  DEMO_RESEARCH_TEXT,
+  PAPER_DEMO_RESPONSE,
+  PAPER_DEMO_TITLES,
+} from "@/lib/demo";
+import type {
+  DbHealth,
+  DocumentSummary,
+  EvaluationData,
+  Verification,
+  VerificationSummary,
+} from "@/lib/types";
 
 const MAX_CHARS = 30_000;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -51,6 +64,7 @@ export default function HomePage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
   const [dbHealth, setDbHealth] = useState<DbHealth | null>(null);
+  const [evaluation, setEvaluation] = useState<EvaluationData | null>(null);
   const [provider, setProvider] = useState<string | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -78,10 +92,15 @@ export default function HomePage() {
         if (cancelled) return;
         setApiOnline(true);
         setProvider(health.llm_provider ? `${health.llm_provider}/${health.llm_model}` : null);
-        const [dbResult, docsResult] = await Promise.allSettled([getDbHealth(), getDocuments()]);
+        const [dbResult, docsResult, evaluationResult] = await Promise.allSettled([
+          getDbHealth(),
+          getDocuments(),
+          getEvaluation(),
+        ]);
         if (cancelled) return;
         if (dbResult.status === "fulfilled") setDbHealth(dbResult.value);
         if (docsResult.status === "fulfilled") setDocuments(docsResult.value);
+        if (evaluationResult.status === "fulfilled") setEvaluation(evaluationResult.value);
       } catch {
         if (!cancelled) setApiOnline(false);
       } finally {
@@ -137,7 +156,7 @@ export default function HomePage() {
     [flashNotice]
   );
 
-  const handleDemo = useCallback(() => {
+  const handleSyntheticDemo = useCallback(() => {
     setResearchText(DEMO_RESEARCH_TEXT);
     setEvidenceText(DEMO_EVIDENCE_TEXT);
     setEvidenceTitle(DEMO_EVIDENCE_TITLE);
@@ -146,6 +165,26 @@ export default function HomePage() {
     flashNotice("Synthetic demo loaded. It contains fictional evidence and no expected answers.");
     document.getElementById("workspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [flashNotice]);
+
+  const handlePaperDemo = useCallback(() => {
+    const matches = documents.filter((document) =>
+      PAPER_DEMO_TITLES.some((title) => document.title.startsWith(title))
+    );
+    if (matches.length < PAPER_DEMO_TITLES.length) {
+      setError(
+        "Paper demo evidence is not in the Db2 library yet. Run `make demo-papers` to download the two arXiv PDFs and ingest them, then refresh this page."
+      );
+      return;
+    }
+    setResearchText(PAPER_DEMO_RESPONSE);
+    setSelectedDocumentIds(matches.map((document) => document.document_id));
+    setEvidenceTab("library");
+    setError(null);
+    flashNotice(
+      "Paper demo loaded: real arXiv PDFs are selected as evidence. The summary claims are synthetic."
+    );
+    document.getElementById("workspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [documents, flashNotice]);
 
   const handleSubmit = useCallback(async () => {
     if (!canSubmit) return;
@@ -303,7 +342,8 @@ export default function HomePage() {
             value={researchText}
             onChange={setResearchText}
             onSubmit={handleSubmit}
-            onLoadDemo={handleDemo}
+            onLoadPaperDemo={handlePaperDemo}
+            onLoadSyntheticDemo={handleSyntheticDemo}
             submitting={submitting}
             canSubmit={canSubmit}
             error={error}
@@ -362,6 +402,8 @@ export default function HomePage() {
           <MethodSection />
         </div>
 
+        <EvaluationSection evaluation={evaluation} />
+
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-panel-2/40 px-5 py-4">
           <div className="flex items-start gap-2.5">
             <Fingerprint className="mt-0.5 h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
@@ -382,7 +424,7 @@ export default function HomePage() {
 
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-5 py-5 font-mono text-[10px] text-muted lg:px-8">
-          <span>AEGIS v0.1 · Verify before you trust.</span>
+          <span>AEGIS v0.2 · Verify before you trust.</span>
           <span className="flex items-center gap-2">
             <span className="h-1 w-1 rounded-full bg-accent" />
             Next.js · FastAPI · LangChain · IBM Db2

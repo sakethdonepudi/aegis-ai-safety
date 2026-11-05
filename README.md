@@ -13,7 +13,11 @@ other AI systems, preserve provenance, and support reproducible evaluation.
 
 ![AEGIS claim inspector](docs/screenshots/claim-inspector.png)
 
-![status](https://img.shields.io/badge/status-initial%20vertical%20slice-4C8DFF)
+![AEGIS numeric check](docs/screenshots/numeric-check.png)
+
+![AEGIS evaluation empty state](docs/screenshots/evaluation.png)
+
+![status](https://img.shields.io/badge/status-working%20vertical%20slice-4C8DFF)
 ![database](https://img.shields.io/badge/database-IBM%20Db2%2012.1.5-0F62FE)
 ![orchestration](https://img.shields.io/badge/orchestration-LangChain-1C3C3C)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -29,9 +33,13 @@ other AI systems, preserve provenance, and support reproducible evaluation.
 | LangChain claim extraction and evidence-grounded verification | Working; verified end-to-end with a local Ollama model. A hosted provider only needs a key |
 | Db2-backed lexical retrieval (BM25 over SQL candidates) | Working |
 | Evidence-reference validation and missing-evidence guardrails | Working |
+| Deterministic numerical consistency checks | Working for simple percentages, BLEU, parameter/layer/head/GPU/day counts |
+| JSON and Markdown report export | Working |
 | Verification history and session reopening | Working |
+| Document detail API and citation-level evidence links | Working |
+| Evaluation page with measured-results-only empty state | Working; no benchmark executed |
 | SciFact evaluation + metrics harness | Prepared; **no benchmark has been executed** |
-| OCR for scanned PDFs, vector retrieval, authentication | Not implemented |
+| OCR for scanned PDFs, vector retrieval, DOI/Crossref citation checks, authentication | Not implemented |
 
 > AEGIS does not guarantee that research is accurate. An automated judgment is a
 > transparent aid for review, not a substitute for researcher judgment.
@@ -136,6 +144,9 @@ make db-init
 
 # Optional: insert the labelled synthetic demo evidence
 make db-seed
+
+# Optional: download the two arXiv PDFs used by the real-paper demo
+make demo-papers
 ```
 
 If `db-init` reports an authorization error, use a Db2 user that can create the
@@ -194,12 +205,14 @@ curl -s http://localhost:8000/api/db/health | python3 -m json.tool
 ### 6. Demo
 
 1. Open `http://localhost:3000`.
-2. Click **Load demo**.
+2. Click **Paper demo** (real arXiv PDFs) or **Synthetic** (fictional SolarCell-X).
 3. Click **Verify research claims**.
 
-The demo uses fictional SolarCell-X evidence with a supported claim, a contradicted
-claim, and a claim lacking evidence. Classifications are produced by the configured
-LLM through the real pipeline; nothing is hardcoded. See [docs/demo.md](docs/demo.md).
+The paper demo uses *Attention Is All You Need* and *BERT* as evidence. It contains
+claims designed to exercise supported, contradicted, insufficient-evidence, and
+numerical-discrepancy outcomes. The summary text is synthetic; the evidence is real.
+Classifications are produced by the configured LLM through the real pipeline and a
+deterministic numeric check; nothing is hardcoded. See [docs/demo.md](docs/demo.md).
 
 ## API
 
@@ -208,9 +221,12 @@ GET  /health
 GET  /api/db/health
 GET  /api/documents
 POST /api/documents
+GET  /api/documents/{document_id}
 POST /api/verify
 GET  /api/verifications
 GET  /api/verifications/{session_id}
+GET  /api/verifications/{session_id}/export?format=json|markdown
+GET  /api/evaluation
 ```
 
 Full request/response documentation: [docs/api.md](docs/api.md) and the OpenAPI UI at
@@ -267,11 +283,12 @@ frontend/          Next.js app, shadcn-style UI, Recharts overview
 frontend/.env.example  Frontend-only environment template
 backend/app/       FastAPI entry point, routes, services, Db2 repository
 backend/tests/     Unit, API, and real-Db2 integration tests
-database/          schema.sql, init_db.py, seed.py
-data/samples/      Clearly labelled synthetic demo evidence
-experiments/       SciFact loader, metrics, evaluation CLI, manifest
-research/          Problem statement, hypotheses, methodology
-docs/              Architecture, API, demo, macOS setup, limitations
+database/          schema.sql, indexes.sql, init_db.py, seed.py, seed_papers.py
+data/samples/      Synthetic evidence and the paper-demo response
+scripts/           fetch_demo_papers.sh (downloads the arXiv PDFs)
+experiments/       SciFact loader, benchmark, metrics, evaluation CLI, manifest
+research/          Problem statement, research questions, hypotheses, methodology
+docs/              Architecture, API, demo, macOS setup, security, deployment, limitations
 .github/workflows/ CI (unit/build) + manual Db2 integration workflow
 ```
 
@@ -290,7 +307,9 @@ Tested in this build environment:
 - Next.js typecheck, lint, production build, and browser flow
 - Unit/API tests, real-Db2 integration tests, evaluation utility tests
 - GitHub Actions backend and frontend jobs
-- Local Ollama `qwen2.5:7b-instruct` demo run
+- Local Ollama `qwen2.5:7b-instruct` paper demo: 4 claims with 1 supported, 2 contradicted (one deterministic numeric conflict), and 1 insufficient evidence
+- JSON and Markdown export generation
+- Db2 schema migration from the previous schema revision
 
 Not tested here, and therefore not claimed:
 
@@ -299,7 +318,8 @@ Not tested here, and therefore not claimed:
 - A brand-new macOS machine install from a fresh clone (dependencies were installed in
   this workspace)
 - PDF upload through the browser end-to-end (PDF parsing and validation are unit-tested
-  and the upload endpoint is implemented, but no real PDF was submitted through the UI)
+  and the two demo PDFs were ingested through the API, but the file-picker flow was not
+  driven by a browser test)
 - Windows or Linux application runtime beyond Ubuntu CI unit tests
 - Public deployment with a hosted Db2 instance
 
@@ -315,7 +335,14 @@ Not tested here, and therefore not claimed:
 - React escapes displayed content by default.
 
 This is an initial research application, not a hardened multi-tenant service. See
-[docs/limitations.md](docs/limitations.md).
+[docs/security.md](docs/security.md) and [docs/limitations.md](docs/limitations.md).
+
+## Deployment
+
+Local development is the primary workflow. Frontend deployment for Vercel, backend
+hosting requirements, remote Db2 connectivity, CORS, and the rule against exposing
+localhost Db2 are documented in [docs/deployment.md](docs/deployment.md). No public
+deployment or hosted Db2 instance is included.
 
 ## Evaluation
 

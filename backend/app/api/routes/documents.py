@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Path, UploadFile
 
-from app.api.deps import get_document_service
+from app.api.deps import get_document_service, get_repository
 from app.core.config import get_settings
 from app.core.errors import UploadValidationError
-from app.schemas.document import DocumentListResponse, DocumentResponse
+from app.db.repository import Db2Repository
+from app.schemas.document import DocumentDetail, DocumentListResponse, DocumentResponse
 from app.services.documents import DocumentService
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,9 @@ async def upload_document(
     await file.close()
 
     try:
-        result = service.ingest_upload(file.filename or "document", file.content_type, bytes(data))
+        result = service.ingest_upload(
+            file.filename or "document", file.content_type, bytes(data), title=title
+        )
     except UploadValidationError:
         raise
     except Exception:
@@ -54,3 +57,11 @@ def list_documents(
 ) -> DocumentListResponse:
     safe_limit = max(1, min(limit, 200))
     return DocumentListResponse(documents=service.list_documents(limit=safe_limit))
+
+
+@router.get("/{document_id}", response_model=DocumentDetail)
+def get_document(
+    document_id: int = Path(gt=0),
+    repository: Db2Repository = Depends(get_repository),
+) -> DocumentDetail:
+    return DocumentDetail(**repository.get_document(document_id))

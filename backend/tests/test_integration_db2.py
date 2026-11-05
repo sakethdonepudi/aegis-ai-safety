@@ -118,6 +118,8 @@ def test_full_vertical_slice_persists_to_db2(repository: Db2Repository):
         session_id = result["session_id"]
 
         assert result["status"] == "COMPLETED"
+        assert result["duration_ms"] is not None
+        assert result["completed_at"] is not None
         assert len(result["claims"]) == 3
         classifications = [claim["classification"] for claim in result["claims"]]
         assert classifications == ["SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"]
@@ -133,12 +135,16 @@ def test_full_vertical_slice_persists_to_db2(repository: Db2Repository):
         contradicted = result["claims"][1]
         insufficient = result["claims"][2]
         assert supported["evidence"][0]["passage_text"].find("92%") != -1
+        assert supported["evidence"][0]["evidence_relationship"] == "SUPPORTS"
         assert contradicted["evidence"][0]["passage_text"].find("15%") != -1
+        assert contradicted["evidence"][0]["evidence_relationship"] == "CONTRADICTS"
         assert insufficient["evidence"] == []
+        assert supported["human_review_status"] == "PENDING"
 
         # Re-open the session exactly as the history endpoint does.
         persisted = repository.get_session(session_id)
         assert persisted["status"] == "COMPLETED"
+        assert persisted["duration_ms"] is not None
         assert [claim["classification"] for claim in persisted["claims"]] == classifications
 
         # Verify relational integrity and parameterized persistence directly.

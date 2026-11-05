@@ -54,7 +54,9 @@ FastAPI
 | `app/services/claim_extraction.py` | LangChain JSON prompt → validated `ExtractedClaim` list |
 | `app/services/evidence_retrieval.py` | Db2 lexical candidates + BM25 ranking behind a backend interface |
 | `app/services/claim_verification.py` | LangChain assessment + passage-ID validation guardrails |
-| `app/services/pipeline.py` | End-to-end orchestration and failure-state handling |
+| `app/services/numerical_verifier.py` | Deterministic comparison of simple numeric expressions |
+| `app/services/report_generator.py` | JSON and Markdown report generation |
+| `app/services/pipeline.py` | End-to-end orchestration, duration, and failure-state handling |
 | `app/services/llm.py` | Provider-agnostic LangChain client + tolerant JSON parsing |
 
 ## Request lifecycle
@@ -75,8 +77,12 @@ FastAPI
    - `SUPPORTED` / `CONTRADICTED` without a valid citation is downgraded to
      `INSUFFICIENT_EVIDENCE`.
    - A parse/provider failure becomes `VERIFICATION_ERROR` for that claim.
-9. Claims, results, evidence links, and the final status are written in one
-   transaction. A failure marks the session `FAILED` and returns a sanitized error.
+9. A deterministic numeric check compares simple literal quantities in the claim with
+   the cited passages. A clear value conflict can override an inconsistent model
+   judgment and is recorded separately.
+10. Claims, results, evidence links, relationship labels, numeric analysis, duration,
+    and final status are written in one transaction. A failure marks the session
+    `FAILED` and returns a sanitized error.
 
 ## Data model
 
@@ -84,15 +90,15 @@ Schema: `AEGIS`.
 
 ### DOCUMENTS
 `DOCUMENT_ID` identity PK, `TITLE`, `FILENAME`, `CONTENT_HASH` unique, `SOURCE_TYPE`,
-`CREATED_AT`.
+`PROCESSING_STATUS`, `CREATED_AT`.
 
 ### PASSAGES
 `PASSAGE_ID` identity PK, `DOCUMENT_ID` FK → DOCUMENTS (cascade), `PASSAGE_TEXT`
-varchar(4000), `PAGE_NUMBER`, `PASSAGE_INDEX`.
+varchar(4000), `PAGE_NUMBER`, `PASSAGE_INDEX`, `CHAR_START`, `CHAR_END`.
 
 ### VERIFICATION_SESSIONS
 `SESSION_ID` identity PK, `SUBMITTED_TEXT` varchar(32672), `MODEL_PROVIDER`, `STATUS`,
-`ERROR_MESSAGE`, `CREATED_AT`.
+`ERROR_MESSAGE`, `CREATED_AT`, `COMPLETED_AT`, `DURATION_MS`.
 
 ### CLAIMS
 `CLAIM_ID` identity PK, `SESSION_ID` FK → sessions (cascade), `ORIGINAL_CLAIM`,
@@ -100,14 +106,28 @@ varchar(4000), `PAGE_NUMBER`, `PASSAGE_INDEX`.
 
 ### VERIFICATION_RESULTS
 `RESULT_ID` identity PK, `CLAIM_ID` FK unique, `CLASSIFICATION` check-constrained,
-`EXPLANATION`, `LIMITATIONS`, `VERIFICATION_METHOD`, `CREATED_AT`.
+`EXPLANATION`, `LIMITATIONS`, `NUMERICAL_ANALYSIS`, `VERIFICATION_METHOD`,
+`HUMAN_REVIEW_STATUS`, `CREATED_AT`.
 
 ### EVIDENCE_LINKS
 `EVIDENCE_LINK_ID` identity PK, `RESULT_ID` FK → results (cascade), `PASSAGE_ID` FK →
-passages (cascade), `RELEVANCE_SCORE`, unique `(RESULT_ID, PASSAGE_ID)`.
+passages (cascade), `EVIDENCE_RELATIONSHIP`, `RELEVANCE_SCORE`, unique
+`(RESULT_ID, PASSAGE_ID)`.
 
 Indexes cover passage lookup by document, claim lookup by session, evidence lookup by
-result/passage, and recent-session/document ordering.
+result/passage, status filtering, and recent-session/document ordering. Indexes live in
+`database/indexes.sql`; `database/init_db.py` applies schema, migrations, and indexes
+idempotently.
+
+## Reports and evaluation
+
+- `GET /api/verifications/{session_id}/export?format=json|markdown` generates a
+  downloadable report with session metadata, claims, evidence, explanations,
+  limitations, numeric checks, and unresolved questions.
+- `GET /api/evaluation` returns a real SciFact metrics file if one exists; otherwise it
+  returns an explicit `not_run` state. The UI never invents benchmark scores.
+- The deterministic numeric verifier is intentionally narrow and explainable; it does
+  not replace the LLM judgment except for unambiguous literal value conflicts.
 
 ## Retrieval design
 

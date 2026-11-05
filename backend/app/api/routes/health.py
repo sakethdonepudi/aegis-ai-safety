@@ -16,7 +16,7 @@ from app.schemas.common import DbHealthResponse, HealthResponse
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["health"])
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 
 @router.get("/health", response_model=HealthResponse)
