@@ -56,8 +56,8 @@ even when the model omits a citation.
 | **Total** | **89.881** | **100%** |
 
 LLM verification fell from **183.5 s to 60.8 s** with the same 7B model and the same
-four claims. The end-to-end API run after the change completed in **67.8 s wall time**
-with a server-side duration of **59.95 s**.
+four claims. The final end-to-end API run after the change completed in **69.7 s wall time**
+with a server-side duration of **62.2 s**.
 
 ## Quality check
 

@@ -37,8 +37,8 @@ other AI systems, preserve provenance, and support reproducible evaluation.
 | JSON and Markdown report export | Working |
 | Verification history and session reopening | Working |
 | Document detail API and citation-level evidence links | Working |
-| Evaluation page with measured-results-only empty state | Working; no benchmark executed |
-| SciFact evaluation + metrics harness | Prepared; **no benchmark has been executed** |
+| Evaluation page with measured-results-only view | Working; displays the measured 100-claim SciFact run |
+| SciFact evaluation + metrics harness | Executed on a 100-claim balanced dev subset; macro F1 **0.615**, Recall@10 **0.80** |
 | OCR for scanned PDFs, vector retrieval, DOI/Crossref citation checks, authentication | Not implemented |
 
 > AEGIS does not guarantee that research is accurate. An automated judgment is a
@@ -313,6 +313,8 @@ Tested in this build environment:
 - Stage profiling: LLM verification dominated (~86% baseline); concise output reduced
   the measured four-claim profile from 212 s to 90 s without changing classifications
   (see [docs/performance.md](docs/performance.md))
+- SciFact held-out run: 100 balanced dev claims, macro F1 0.615, accuracy 0.630,
+  retrieval Recall@10 0.80, 0 verification errors
 
 Not tested here, and therefore not claimed:
 
@@ -350,11 +352,30 @@ deployment or hosted Db2 instance is included.
 ## Evaluation
 
 SciFact is **not** bundled. Its license is CC BY-NC 2.0, so it must be downloaded
-separately and used non-commercially. The harness supports macro F1, per-class
-precision/recall, confusion matrices, false-positive analysis, retrieval Recall@K,
-and latency statistics. No benchmark result is reported because none has been run.
+separately and used non-commercially. The official test split does not publish evidence
+labels, so AEGIS uses the labelled **dev** split as the held-out set.
 
-See [experiments/README.md](experiments/README.md).
+Measured run: **100 balanced claims** (34 supported / 33 contradicted / 33
+insufficient), local `qwen2.5:7b-instruct`, full-corpus Db2-backed BM25.
+
+| Metric | Value |
+| --- | ---: |
+| Macro F1 | 0.615 |
+| Accuracy | 0.630 |
+| Supported precision / recall / F1 | 0.727 / 0.706 / 0.716 |
+| Contradicted precision / recall / F1 | 0.667 / 0.364 / 0.471 |
+| Insufficient precision / recall / F1 | 0.551 / 0.818 / 0.659 |
+| Retrieval Recall@1 / @5 / @10 | 0.57 / 0.77 / 0.80 |
+| Mean / median / p95 latency | 24.9 s / 22.4 s / 43.6 s |
+| Verification errors | 0 / 100 |
+
+This is a defined held-out subset, not the full 300-claim split, and not a claim of
+statistical significance. Contradiction recall is the main weakness. Results,
+predictions, document map, and settings are in `experiments/results/` and
+`experiments/predictions/`. No labels are passed to retrieval or the verifier.
+
+See [experiments/README.md](experiments/README.md) and
+[docs/performance.md](docs/performance.md).
 
 ## License
 
