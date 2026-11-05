@@ -1,0 +1,28 @@
+{
+  "dataset": "SciFact",
+  "source": "https://github.com/allenai/scifact (also https://huggingface.co/datasets/allenai/scifact)",
+  "version": "HuggingFace dataset revision tracked as allenai/scifact; record the exact commit/revision when downloading for a frozen evaluation.",
+  "license": "CC BY-NC 2.0",
+  "license_url": "https://creativecommons.org/licenses/by-nc/2.0/",
+  "splits": {
+    "train": 1261,
+    "validation": 450,
+    "test": 300
+  },
+  "task": "Scientific claim verification: SUPPORT, CONTRADICT, or not enough information (NEI).",
+  "label_mapping": {
+    "SUPPORT": "SUPPORTED",
+    "CONTRADICT": "CONTRADICTED",
+    "NEI": "INSUFFICIENT_EVIDENCE"
+  },
+  "intended_metrics": [
+    "macro F1 over SUPPORTED / CONTRADICTED / INSUFFICIENT_EVIDENCE",
+    "per-class precision and recall",
+    "confusion matrix",
+    "false-positive analysis (definitive predictions on NEI claims)",
+    "retrieval Recall@1, Recall@5, Recall@10",
+    "mean / median / p95 verification latency"
+  ],
+  "citation": "Wadden et al. (2020), Fact or Fiction: Verifying Scientific Claims, EMNLP 2020.",
+  "usage_note": "The dataset is not redistributed in this repository. Download it separately and record the revision used."
+}
