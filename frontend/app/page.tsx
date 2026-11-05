@@ -204,7 +204,7 @@ export default function HomePage() {
             <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
             <span>The AEGIS API is unreachable at {API_BASE}.</span>
             <code className="rounded border border-contradicted/20 bg-panel px-1.5 py-0.5 font-mono text-[10px]">
-              cd backend && ../.venv/bin/uvicorn app.main:app --reload
+              cd backend &amp;&amp; uvicorn app.main:app --reload
             </code>
           </div>
         </div>

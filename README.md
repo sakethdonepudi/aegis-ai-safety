@@ -77,25 +77,36 @@ database.
 - **Testing:** Pytest, FastAPI `TestClient`, real-Db2 integration tests, frontend
   typecheck/build.
 
-## Quick start
+## Quick start (macOS Apple Silicon)
+
+Full walkthrough: [docs/setup-macos.md](docs/setup-macos.md).
 
 ### 1. Prerequisites
 
-- Node.js 20+
+- macOS on Apple Silicon (M-series)
 - Python 3.11+
-- IBM Db2 Community Edition 12.1.5 on `localhost:50000` (or the official container)
+- Node.js **20.19+** (see `.nvmrc`; `nvm use` if you use nvm)
+- Your existing IBM Db2 instance reachable at `localhost:50000`, database
+  `TESTDB`, user `db2inst1` (AEGIS does not ship or require a specific Db2 install)
 - An LLM key for an OpenAI-compatible provider, or a local OpenAI-compatible server
-  (see [LLM configuration](#llm-configuration))
+  such as Ollama
+
+IBM does not provide a native macOS arm64 Db2 server. If you already run Db2 in a
+container or on another machine, AEGIS just needs TCP access to it.
 
 ### 2. Configure
 
 ```bash
 cp .env.example .env
-# edit .env: DB2_PASSWORD, LLM_API_KEY, LLM_MODEL, optionally LLM_BASE_URL
 chmod 600 .env
+# edit .env: DB2_PASSWORD and LLM_* values
+
+# Only needed if the API is not on http://localhost:8000:
+cp frontend/.env.example frontend/.env.local
 ```
 
-Never commit `.env`.
+Root `.env` is read by FastAPI. `frontend/.env.local` is read by Next.js. Neither is
+committed.
 
 ### 3. Install
 
@@ -107,19 +118,34 @@ or manually:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r backend/requirements-dev.txt
+source .venv/bin/activate
+pip install -r backend/requirements-dev.txt
 cd frontend && npm install && cd ..
 ```
 
-### 4. Start Db2
+### 4. Connect to Db2
 
-If you already have Db2 running on `localhost:50000` with `TESTDB` and `db2inst1`,
-skip to step 5.
-
-The official image is `linux/amd64`; on Apple Silicon use emulation:
+With your existing instance running:
 
 ```bash
-export DB2_PASSWORD='choose-a-local-password'   # also set in .env
+# Optional connectivity check
+nc -vz localhost 50000
+
+# Create schema AEGIS, six tables, FKs, and indexes (idempotent)
+make db-init
+
+# Optional: insert the labelled synthetic demo evidence
+make db-seed
+```
+
+If `db-init` reports an authorization error, use a Db2 user that can create the
+`AEGIS` schema (the container's `db2inst1` user can).
+
+<details>
+<summary>Optional: start a local Db2 container instead</summary>
+
+```bash
+export DB2_PASSWORD='choose-a-local-password'   # match .env
 podman run -d --name aegis-db2 --platform linux/amd64 --privileged=true \
   -p 50000:50000 \
   -e LICENSE=accept \
@@ -129,19 +155,34 @@ podman run -d --name aegis-db2 --platform linux/amd64 --privileged=true \
   icr.io/db2_community/db2:12.1.5.0
 ```
 
-Wait for the log line `(*) Setup has completed.` (usually several minutes under
-emulation), then:
+Wait for `(*) Setup has completed.` in `podman logs -f aegis-db2`, then run
+`make db-init` and `make db-seed`. The image is `linux/amd64`; Apple Silicon runs it
+under emulation.
+
+</details>
+
+### 5. Run (two terminals)
+
+Backend:
 
 ```bash
-make db-init      # creates schema AEGIS + six tables + indexes
-make db-seed      # inserts the clearly-labelled synthetic evidence document
+source .venv/bin/activate
+cd backend
+uvicorn app.main:app --reload --port 8000
 ```
 
-### 5. Run
+Frontend:
 
 ```bash
-make dev-backend     # http://localhost:8000  (docs at /docs)
-make dev-frontend    # http://localhost:3000
+cd frontend
+npm run dev
+```
+
+Or use the Makefile from the repository root:
+
+```bash
+make dev-backend     # terminal 1 → http://localhost:8000
+make dev-frontend    # terminal 2 → http://localhost:3000
 ```
 
 Confirm the database:
@@ -205,30 +246,62 @@ LLM_MAX_RETRIES=2
 For a local demonstration, an OpenAI-compatible server such as Ollama can be used:
 
 ```bash
+brew install ollama
 ollama serve
-ollama pull qwen2.5:1.5b-instruct
+ollama pull qwen2.5:7b-instruct
 # .env:
 # LLM_PROVIDER=ollama
-# LLM_MODEL=qwen2.5:1.5b-instruct
+# LLM_MODEL=qwen2.5:7b-instruct
 # LLM_API_KEY=ollama
 # LLM_BASE_URL=http://localhost:11434/v1
 ```
 
-Local models are a demonstration fallback, not a claim of research-grade accuracy.
+`qwen2.5:7b-instruct` produces the best demo explanations; `qwen2.5:3b-instruct` is
+faster on 8 GB machines. Local models are a demonstration fallback, not a claim of
+research-grade accuracy.
 
 ## Repository layout
 
 ```text
 frontend/          Next.js app, shadcn-style UI, Recharts overview
+frontend/.env.example  Frontend-only environment template
 backend/app/       FastAPI entry point, routes, services, Db2 repository
 backend/tests/     Unit, API, and real-Db2 integration tests
 database/          schema.sql, init_db.py, seed.py
 data/samples/      Clearly labelled synthetic demo evidence
 experiments/       SciFact loader, metrics, evaluation CLI, manifest
 research/          Problem statement, hypotheses, methodology
-docs/              Architecture, API, demo, limitations
+docs/              Architecture, API, demo, macOS setup, limitations
 .github/workflows/ CI (unit/build) + manual Db2 integration workflow
 ```
+
+## Portability
+
+AEGIS has no Conductor-specific runtime dependency or required configuration. It needs
+only Python, Node.js, network access to IBM Db2, and an OpenAI-compatible LLM endpoint.
+`.context/` is ignored for agent collaboration and is not used by the application.
+
+## Environment verification
+
+Tested in this build environment:
+
+- IBM Db2 12.1.5 on `localhost:50000` (schema creation, seed, integrations)
+- FastAPI API, all endpoints, and the full verification pipeline
+- Next.js typecheck, lint, production build, and browser flow
+- Unit/API tests, real-Db2 integration tests, evaluation utility tests
+- GitHub Actions backend and frontend jobs
+- Local Ollama `qwen2.5:7b-instruct` demo run
+
+Not tested here, and therefore not claimed:
+
+- A hosted LLM provider call (the available free quota was exhausted and the paid
+  account had insufficient funds; the code path is configuration-only)
+- A brand-new macOS machine install from a fresh clone (dependencies were installed in
+  this workspace)
+- PDF upload through the browser end-to-end (PDF parsing and validation are unit-tested
+  and the upload endpoint is implemented, but no real PDF was submitted through the UI)
+- Windows or Linux application runtime beyond Ubuntu CI unit tests
+- Public deployment with a hosted Db2 instance
 
 ## Security posture
 
