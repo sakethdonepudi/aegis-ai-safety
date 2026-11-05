@@ -19,9 +19,9 @@ jobs:
         run: pip install -r backend/requirements-dev.txt
       - name: Unit and API tests (no Db2)
         working-directory: backend
-        run: pytest
+        run: python -m pytest
       - name: Evaluation utility tests
-        run: pytest experiments/tests
+        run: python -m pytest experiments/tests
 
   frontend:
     name: Frontend typecheck and build
