@@ -374,6 +374,11 @@ statistical significance. Contradiction recall is the main weakness. Results,
 predictions, document map, and settings are in `experiments/results/` and
 `experiments/predictions/`. No labels are passed to retrieval or the verifier.
 
+**Revision note:** these numbers were measured on commit `70bd714`. The comprehensive
+QA pass added stronger numeric/entity/relevance guardrails afterward; the 40-case
+controlled suite was rerun (33/40 → 38/40), but the full SciFact benchmark was not rerun.
+See `reports/AEGIS_TESTING_MASTER_REPORT.md`.
+
 See [experiments/README.md](experiments/README.md) and
 [docs/performance.md](docs/performance.md).
 

@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 
 from app.models.domain import PassageCandidate
 
-_NUMBER = r"\d+(?:\.\d+)?"
+_NUMBER = r"\d[\d,]*(?:\.\d+)?"
 _ENTITY = re.compile(r"\bBERT[\s-]?(base|large)\b|\bBERT(BASE|LARGE)\b", re.IGNORECASE)
 
 _UNIT_PATTERNS = [
@@ -39,6 +39,11 @@ _UNIT_PATTERNS = [
     ("heads", re.compile(rf"(?P<value>\d+)\s*(?:parallel\s+)?(?:attention\s+)?heads?\b", re.IGNORECASE)),
     ("GPUs", re.compile(rf"(?P<value>\d+)\s*(?:P100\s+)?GPUs?\b", re.IGNORECASE)),
     ("days", re.compile(rf"(?P<value>{_NUMBER})\s*days?\b", re.IGNORECASE)),
+    ("times", re.compile(rf"(?P<value>{_NUMBER})\s*(?:times\b|[x×])", re.IGNORECASE)),
+    (
+        "megabytes",
+        re.compile(rf"(?P<value>{_NUMBER})\s*(?P<scale>TB|GB|MB)\b", re.IGNORECASE),
+    ),
     (
         "million words",
         re.compile(rf"(?P<value>{_NUMBER})\s*(?P<scale>billion|million|M|B)\s*words?\b", re.IGNORECASE),
@@ -61,29 +66,50 @@ class NumericCheckResult:
     discrepancies: list[str]
     matches: list[str]
     discrepant_passage_ids: list[int] = field(default_factory=list)
+    discrepancy_units: list[str] = field(default_factory=list)
 
     @property
     def has_discrepancy(self) -> bool:
         return bool(self.discrepancies)
 
+    @property
+    def override_eligible(self) -> bool:
+        # Percentages are context-dependent (accuracy, prevalence, cost, etc.).
+        # Use them for explanation but do not let a bare percent mismatch
+        # deterministically override the model's classification.
+        return any(unit != "percent" for unit in self.discrepancy_units)
+
 
 def _normalized_value(value: str, scale: str | None, unit: str) -> tuple[float, str]:
-    number = float(value)
+    number = float(value.replace(",", ""))
     if unit == "million parameters":
         factor = 1000.0 if (scale or "").lower() in ("billion", "b") else 1.0
         return number * factor, "million parameters"
     if unit == "million words":
         factor = 1000.0 if (scale or "").lower() in ("billion", "b") else 1.0
         return number * factor, "million words"
+    if unit == "megabytes":
+        factor = {"tb": 1_000_000.0, "gb": 1000.0, "mb": 1.0}.get((scale or "").lower(), 1.0)
+        return number * factor, "megabytes"
     return number, unit
 
 
 def _entity_at(text: str, start: int, end: int) -> str | None:
-    window = text[max(0, start - 120) : min(len(text), end + 120)]
-    match = _ENTITY.search(window)
-    if not match:
-        return None
-    return (match.group(1) or match.group(2) or "").lower() or None
+    preceding: tuple[int, str] | None = None
+    following: tuple[int, str] | None = None
+    for match in _ENTITY.finditer(text):
+        entity = (match.group(1) or match.group(2) or "").lower()
+        if not entity:
+            continue
+        if match.end() <= start and start - match.end() <= 120:
+            if preceding is None or match.end() > preceding[0]:
+                preceding = (match.end(), entity)
+        elif match.start() >= end and match.start() - end <= 120:
+            if following is None or match.start() < following[0]:
+                following = (match.start(), entity)
+    if preceding is not None:
+        return preceding[1]
+    return following[1] if following else None
 
 
 def extract_mentions(text: str, passage_id: int | None = None) -> list[NumericMention]:
@@ -134,6 +160,7 @@ def check_numerics(claim_text: str, passages: list[PassageCandidate]) -> Numeric
     discrepancies: list[str] = []
     matches: list[str] = []
     discrepant_passage_ids: list[int] = []
+    discrepancy_units: list[str] = []
     for claim in claim_mentions:
         same_unit = [item for item in evidence_mentions if item.unit == claim.unit]
         if not same_unit:
@@ -164,6 +191,7 @@ def check_numerics(claim_text: str, passages: list[PassageCandidate]) -> Numeric
             )
             lines.append(line)
             discrepancies.append(line)
+            discrepancy_units.append(claim.unit)
             for item in candidates:
                 if item.passage_id is not None and item.passage_id not in discrepant_passage_ids:
                     discrepant_passage_ids.append(item.passage_id)
@@ -174,6 +202,7 @@ def check_numerics(claim_text: str, passages: list[PassageCandidate]) -> Numeric
         discrepancies=discrepancies,
         matches=matches,
         discrepant_passage_ids=discrepant_passage_ids,
+        discrepancy_units=discrepancy_units,
     )
 
 

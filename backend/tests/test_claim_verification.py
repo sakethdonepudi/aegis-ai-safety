@@ -137,3 +137,25 @@ def test_numeric_conflict_attaches_evidence_without_model_citation():
     result = service_returning(payload).verify(numeric_claim, [numeric_passage])
     assert result.classification == Classification.CONTRADICTED
     assert [item.passage_id for item in result.evidence] == [22]
+
+
+def test_percentage_mismatch_does_not_deterministically_override():
+    claim = ExtractedClaim(
+        original_claim="The method improves accuracy by 5%.",
+        normalized_claim="The method improves accuracy by 5%.",
+        claim_type="NUMERICAL",
+    )
+    passage = PassageCandidate(
+        passage_id=23,
+        document_id=1,
+        document_title="Study",
+        filename="study.pdf",
+        passage_text="95% of participants completed the survey.",
+        page_number=2,
+        passage_index=0,
+        retrieval_score=4.0,
+    )
+    payload = verification_response("INSUFFICIENT_EVIDENCE", [])
+    result = service_returning(payload).verify(claim, [passage])
+    assert result.classification == Classification.INSUFFICIENT_EVIDENCE
+    assert result.evidence == []

@@ -75,6 +75,9 @@ and not a production-hardened service.
   (34 supported / 33 contradicted / 33 insufficient), not the full split and not the
   hidden-label test split. Macro F1 was 0.615 and retrieval Recall@10 was 0.80 with
   local `qwen2.5:7b-instruct`.
+- These benchmark numbers predate the final QA guardrails; the full benchmark was not
+  rerun after those fixes. The controlled 40-case suite was rerun (38/40 after fixes).
+  See `reports/AEGIS_TESTING_MASTER_REPORT.md`.
 - Contradiction recall (0.364) is the main weakness; 15 of 33 contradicted claims were
   classified as insufficient evidence. Retrieval Recall@10 (0.80) bounds classification
   performance.

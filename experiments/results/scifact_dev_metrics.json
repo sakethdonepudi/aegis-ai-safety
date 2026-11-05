@@ -77,7 +77,9 @@
       "total": 6,
       "supported_when_nei": 3,
       "contradicted_when_nei": 3
-    }
+    },
+    "macro_precision": 0.64832,
+    "macro_recall": 0.629233
   },
   "retrieval": {
     "recall_at_1": {
@@ -98,7 +100,13 @@
       "recall": 0.8,
       "hits": 80
     },
-    "claims_with_gold_docs": 100
+    "claims_with_gold_docs": 100,
+    "recall_at_3": {
+      "k": 3,
+      "n": 100,
+      "recall": 0.71,
+      "hits": 71
+    }
   },
   "latency": {
     "n": 100,
@@ -148,5 +156,8 @@
     "elapsed_seconds": 15.45,
     "note": "Measured on the first import; subsequent resume runs skipped the existing corpus."
   },
-  "generated_at": "2026-11-05T22:29:38.538016+00:00"
+  "generated_at": "2026-11-05T22:29:38.538016+00:00",
+  "total_claim_processing_seconds": 2493.34,
+  "total_evaluation_seconds": 2499.89,
+  "evaluation_duration_note": "Sum of measured per-claim latency plus full-corpus index load; excludes import time (15.45s) and process restarts."
 }

@@ -33,7 +33,7 @@ export function ResearchInput({
   children,
 }: ResearchInputProps) {
   return (
-    <Card id="workspace" className="scroll-mt-24">
+    <Card id="workspace" className="min-w-0 scroll-mt-24">
       <CardHeader className="flex-row flex-wrap items-start justify-between gap-4 space-y-0">
         <div>
           <p className="eyebrow">01 / Research input</p>

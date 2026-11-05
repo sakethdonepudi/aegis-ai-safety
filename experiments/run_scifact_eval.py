@@ -298,10 +298,13 @@ def main() -> int:
         },
         "classification": classification,
         "retrieval": {
-            **{f"recall_at_{k}": retrieval_recall_at_k(retrieval_gold, retrieval_predicted, k) for k in (1, 5, 10)},
+            **{f"recall_at_{k}": retrieval_recall_at_k(retrieval_gold, retrieval_predicted, k) for k in (1, 3, 5, 10)},
             "claims_with_gold_docs": len(retrieval_gold),
+            "mean_retrieval_ms": round(sum(p["retrieval_ms"] for p in predictions.values()) / len(predictions), 2),
         },
         "latency": latency_stats(latencies),
+        "total_claim_processing_seconds": round(sum(latencies) / 1000, 2),
+        "total_evaluation_seconds": round(retriever.load_seconds + sum(latencies) / 1000, 2),
         "false_positive_examples": false_positive_examples(
             valid_claim_ids, gold_labels, predicted_labels
         ),

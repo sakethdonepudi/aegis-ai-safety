@@ -67,9 +67,9 @@ def _connect(settings: Settings):
 
 
 @contextmanager
-def get_connection() -> Iterator[object]:
+def get_connection(settings: Settings | None = None) -> Iterator[object]:
     """Yield a Db2 connection that is always closed."""
-    settings = get_settings()
+    settings = settings or get_settings()
     connection = _connect(settings)
     try:
         yield connection
@@ -81,9 +81,9 @@ def get_connection() -> Iterator[object]:
 
 
 @contextmanager
-def transaction() -> Iterator[object]:
+def transaction(settings: Settings | None = None) -> Iterator[object]:
     """Yield a connection wrapped in an explicit commit/rollback transaction."""
-    with get_connection() as connection:
+    with get_connection(settings) as connection:
         try:
             yield connection
             ibm_db.commit(connection)
