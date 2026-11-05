@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Beaker, Loader2, ShieldCheck } from "lucide-react";
+import { AlertCircle, Beaker, BookOpen, Loader2, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,8 @@ interface ResearchInputProps {
   value: string;
   onChange: (value: string) => void;
   onSubmit: () => void;
-  onLoadDemo: () => void;
+  onLoadPaperDemo: () => void;
+  onLoadSyntheticDemo: () => void;
   submitting: boolean;
   canSubmit: boolean;
   error: string | null;
@@ -23,7 +24,8 @@ export function ResearchInput({
   value,
   onChange,
   onSubmit,
-  onLoadDemo,
+  onLoadPaperDemo,
+  onLoadSyntheticDemo,
   submitting,
   canSubmit,
   error,
@@ -32,7 +34,7 @@ export function ResearchInput({
 }: ResearchInputProps) {
   return (
     <Card id="workspace" className="scroll-mt-24">
-      <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+      <CardHeader className="flex-row flex-wrap items-start justify-between gap-4 space-y-0">
         <div>
           <p className="eyebrow">01 / Research input</p>
           <CardTitle className="mt-1.5 text-base">Paste AI-generated research</CardTitle>
@@ -41,10 +43,28 @@ export function ResearchInput({
             against. AEGIS extracts atomic claims and evaluates each one separately.
           </CardDescription>
         </div>
-        <Button type="button" variant="ghost" size="sm" onClick={onLoadDemo} disabled={submitting}>
-          <Beaker className="h-3.5 w-3.5" />
-          Load demo
-        </Button>
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onLoadPaperDemo}
+            disabled={submitting}
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Paper demo
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onLoadSyntheticDemo}
+            disabled={submitting}
+          >
+            <Beaker className="h-3.5 w-3.5" />
+            Synthetic
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent className="space-y-4">

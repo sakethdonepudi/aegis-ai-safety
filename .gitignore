@@ -39,6 +39,7 @@ yarn-error.log*
 *.sqlite
 database/local/
 data/uploads/
+data/samples/papers/*.pdf
 /tmp/
 
 # OS / editor

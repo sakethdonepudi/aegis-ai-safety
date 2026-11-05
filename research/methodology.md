@@ -72,6 +72,21 @@ Stratify failures by:
 - claims whose evidence is absent from the supplied corpus;
 - malformed model JSON.
 
+## Numeric verification
+
+A deterministic checker compares simple literal numeric expressions in a claim with
+the passages the model cited. It covers percentages, BLEU, parameter counts, layer and
+head counts, GPUs, days, and word counts. A clear conflict can override an inconsistent
+model judgment; "not found" is never treated as contradiction. The checker does not
+handle tables, equations, units, confidence intervals, or advanced statistics.
+
+## Reporting and reproducibility
+
+Each session stores claim/result/evidence provenance, relationship labels, numeric
+analysis, model label, timestamps, and duration. JSON and Markdown reports can be
+exported from the API/UI. Synthetic/paper demo outcomes are reported separately from
+SciFact metrics; the evaluation view is empty until a real metrics file exists.
+
 ## Reproducibility requirements
 
 - Record dataset revision and license acceptance.

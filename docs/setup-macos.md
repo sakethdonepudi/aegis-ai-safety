@@ -123,6 +123,12 @@ Seed the synthetic demo evidence (optional):
 make db-seed
 ```
 
+Load the real-paper demo evidence (optional, downloads two arXiv PDFs):
+
+```bash
+make demo-papers
+```
+
 ### Optional: Db2 container
 
 Only if you do not already have a Db2 instance:
@@ -195,11 +201,13 @@ curl -s http://localhost:8000/api/db/health
 ## 7. Use AEGIS
 
 1. Open <http://localhost:3000>.
-2. Click **Load demo** for the fictional SolarCell-X example, or paste your own text.
+2. Click **Paper demo** to load the real arXiv papers (run `make demo-papers` first) or
+   **Synthetic** for the fictional SolarCell-X example.
 3. Upload a PDF/TXT/MD evidence document or paste evidence.
 4. Click **Verify research claims**.
-5. Inspect each claim, its evidence passage, page reference, explanation, and
-   limitations. Reopen the session from **Verification history**.
+5. Inspect each claim, its evidence passage, page reference, explanation, numeric
+   check, and limitations. Download JSON/Markdown reports or reopen the session from
+   **Verification history**.
 
 ## 8. Run tests
 
@@ -250,6 +258,7 @@ No `.vscode` settings are required; the repository is plain Python + Node.js.
 | Next.js talks to the wrong API | Set `NEXT_PUBLIC_API_BASE_URL` in `frontend/.env.local` and restart `npm run dev` |
 | `ibm_db` segfaults on arm64 | Do not use `exec_immediate` with parameter markers; AEGIS uses prepared statements and frees them |
 | Node engine warning | Use Node 20.19+ (`nvm install 20.19.0 && nvm use`) |
+| Local model request times out | Raise `AEGIS_REQUEST_TIMEOUT_SECONDS` in `.env` (default 600) or use a smaller/faster model |
 
 ## 11. What was not tested in this build environment
 

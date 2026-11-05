@@ -4,7 +4,7 @@ PYTHON ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 
 .PHONY: help venv install backend-install frontend-install db-up db-down db-init db-seed \
-	dev-backend dev-frontend test test-integration build lint typecheck clean
+	demo-papers dev-backend dev-frontend test test-integration build lint typecheck clean
 
 help:
 	@echo "AEGIS targets:"
@@ -13,6 +13,7 @@ help:
 	@echo "  make db-down          Stop the AEGIS Db2 container"
 	@echo "  make db-init          Create schema AEGIS and all tables/indexes"
 	@echo "  make db-seed          Insert the synthetic demo evidence document"
+	@echo "  make demo-papers      Download the two arXiv PDFs and ingest them as evidence"
 	@echo "  make dev-backend      Run FastAPI on http://localhost:8000"
 	@echo "  make dev-frontend     Run Next.js on http://localhost:3000"
 	@echo "  make test             Unit + API tests (Db2 integration skips)"
@@ -51,6 +52,9 @@ db-init:
 
 db-seed:
 	$(PYTHON) database/seed.py
+
+demo-papers:
+	bash scripts/fetch_demo_papers.sh
 
 dev-backend:
 	cd backend && ../$(PYTHON) -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000

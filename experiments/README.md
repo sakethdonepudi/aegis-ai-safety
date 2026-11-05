@@ -25,7 +25,8 @@ Manifest: [`scifact_manifest.json`](scifact_manifest.json).
 | --- | --- |
 | `scifact_loader.py` | Load official JSONL/JSON claims exports; derive labels and cited docs |
 | `metrics.py` | Macro F1, per-class precision/recall, confusion matrix, FP analysis, Recall@K, latency |
-| `evaluate.py` | CLI that computes metrics from a predictions file |
+| `benchmark.py` | Canonical benchmark entry point |
+| `evaluate.py` | Evaluation CLI that computes metrics from a predictions file |
 | `tests/test_metrics.py` | Unit tests with synthetic arrays only |
 
 ## Prediction format
@@ -52,11 +53,13 @@ records should be excluded or reported separately.
 #    https://github.com/allenai/scifact
 # 2. Export claims_test.jsonl in the official format.
 # 3. Produce predictions through the AEGIS pipeline (adapter not yet implemented).
-python experiments/evaluate.py \
+python experiments/benchmark.py \
   --claims data/scifact/claims_test.jsonl \
   --predictions experiments/predictions/scifact_test_predictions.json \
   --output experiments/results/scifact_test_metrics.json
 ```
+
+`experiments/evaluate.py` accepts the same arguments if you prefer that entry point.
 
 The script exits with an error and writes nothing if inputs are missing. It never
 invents or caches scores.

@@ -20,6 +20,8 @@ def verification_payload() -> dict:
         "status": "COMPLETED",
         "error_message": None,
         "created_at": datetime(2026, 1, 1, 12, 0).isoformat(),
+        "completed_at": datetime(2026, 1, 1, 12, 0, 4).isoformat(),
+        "duration_ms": 4120,
         "counts": {
             "total": 1,
             "supported": 1,
@@ -38,6 +40,8 @@ def verification_payload() -> dict:
                 "classification": "SUPPORTED",
                 "explanation": "Passage P1 states 92%.",
                 "limitations": "Synthetic evidence.",
+                "numerical_analysis": "Deterministic numeric check: 92% appears in passage 1.",
+                "human_review_status": "PENDING",
                 "verification_method": "test",
                 "result_created_at": datetime(2026, 1, 1, 12, 0).isoformat(),
                 "evidence": [
@@ -49,6 +53,7 @@ def verification_payload() -> dict:
                         "document_id": 1,
                         "document_title": "Synthetic study",
                         "filename": "study.txt",
+                        "evidence_relationship": "SUPPORTS",
                         "relevance_score": 5.2,
                     }
                 ],
@@ -83,6 +88,32 @@ class FakeRepository:
                 "EVIDENCE_LINKS",
             ],
             "missing_tables": [],
+        }
+
+    def get_session(self, session_id: int):
+        return verification_payload()
+
+    def get_document(self, document_id: int):
+        return {
+            "document_id": document_id,
+            "title": "Synthetic study",
+            "filename": "study.txt",
+            "content_hash": "a" * 64,
+            "source_type": "text",
+            "processing_status": "READY",
+            "passage_count": 1,
+            "created_at": datetime(2026, 1, 1),
+            "passages": [
+                {
+                    "passage_id": 1,
+                    "document_id": document_id,
+                    "passage_text": "SolarCell-X achieved 92% efficiency.",
+                    "page_number": 1,
+                    "passage_index": 0,
+                    "char_start": 0,
+                    "char_end": 38,
+                }
+            ],
         }
 
 
@@ -198,3 +229,63 @@ def test_missing_session_returns_404(client):
     response = client.get("/api/verifications/999")
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "not_found"
+
+
+def test_document_detail_returns_passages(client):
+    response = client.get("/api/documents/1")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["processing_status"] == "READY"
+    assert body["passage_count"] == 1
+    assert body["passages"][0]["char_start"] == 0
+
+
+def test_export_json_report(client):
+    response = client.get("/api/verifications/7/export")
+    assert response.status_code == 200
+    assert "application/json" in response.headers["content-type"]
+    assert "attachment" in response.headers["content-disposition"]
+    body = response.json()
+    assert body["report_version"] == "1.0"
+    assert body["session"]["claims"][0]["evidence"][0]["passage_id"] == 1
+
+
+def test_export_markdown_report(client):
+    response = client.get("/api/verifications/7/export?format=markdown")
+    assert response.status_code == 200
+    assert "text/markdown" in response.headers["content-type"]
+    assert "attachment" in response.headers["content-disposition"]
+    assert "# AEGIS verification report" in response.text
+    assert "SUPPORTED" in response.text
+    assert "Synthetic study" in response.text
+
+
+def test_export_rejects_unknown_format(client):
+    response = client.get("/api/verifications/7/export?format=xml")
+    assert response.status_code == 422
+
+
+def test_evaluation_empty_state(client, monkeypatch, tmp_path):
+    from app.api.routes import evaluation as evaluation_routes
+
+    monkeypatch.setattr(evaluation_routes, "RESULTS_FILE", tmp_path / "missing.json")
+    response = client.get("/api/evaluation")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "not_run"
+    assert body["results"] is None
+
+
+def test_evaluation_completed_state(client, monkeypatch, tmp_path):
+    from app.api.routes import evaluation as evaluation_routes
+
+    results_file = tmp_path / "metrics.json"
+    results_file.write_text(
+        '{"classification": {"macro_f1": 0.42, "n": 300}}', encoding="utf-8"
+    )
+    monkeypatch.setattr(evaluation_routes, "RESULTS_FILE", results_file)
+    response = client.get("/api/evaluation")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "completed"
+    assert body["results"]["classification"]["macro_f1"] == 0.42

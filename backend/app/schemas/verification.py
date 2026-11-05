@@ -51,6 +51,7 @@ class EvidenceResponse(BaseModel):
     document_id: int
     document_title: str
     filename: str
+    evidence_relationship: str | None = None
     relevance_score: float
 
 
@@ -64,6 +65,8 @@ class ClaimResponse(BaseModel):
     classification: str | None = None
     explanation: str | None = None
     limitations: str | None = None
+    numerical_analysis: str | None = None
+    human_review_status: str = "PENDING"
     verification_method: str | None = None
     result_created_at: datetime | None = None
     evidence: list[EvidenceResponse] = Field(default_factory=list)
@@ -84,6 +87,8 @@ class VerificationResponse(BaseModel):
     status: str
     error_message: str | None = None
     created_at: datetime
+    completed_at: datetime | None = None
+    duration_ms: int | None = None
     counts: VerificationCounts
     claims: list[ClaimResponse] = Field(default_factory=list)
 
@@ -93,6 +98,8 @@ class VerificationSummary(BaseModel):
     status: str
     model_provider: str
     created_at: datetime
+    completed_at: datetime | None = None
+    duration_ms: int | None = None
     preview: str
     total_claims: int
     counts: VerificationCounts
@@ -100,3 +107,11 @@ class VerificationSummary(BaseModel):
 
 class VerificationListResponse(BaseModel):
     verifications: list[VerificationSummary] = Field(default_factory=list)
+
+
+class EvaluationResponse(BaseModel):
+    status: str
+    dataset: str = "SciFact"
+    license: str = "CC BY-NC 2.0"
+    message: str
+    results: dict | None = None

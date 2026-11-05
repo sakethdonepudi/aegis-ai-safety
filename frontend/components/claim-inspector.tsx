@@ -1,10 +1,12 @@
 "use client";
 
-import { ClipboardList, FileSearch } from "lucide-react";
+import { ClipboardList, FileJson, FileSearch, FileText } from "lucide-react";
 
 import { EvidenceViewer } from "@/components/evidence-viewer";
 import { ClassificationBadge } from "@/components/classification";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { API_BASE } from "@/lib/api";
 import { cn, truncate } from "@/lib/utils";
 import type { Verification } from "@/lib/types";
 
@@ -52,7 +54,29 @@ export function ClaimInspector({
             </p>
           </div>
         </div>
-        <p className="text-[11px] text-muted">Click a claim to inspect its evidence</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-[11px] text-muted">Click a claim to inspect its evidence</p>
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={`${API_BASE}/api/verifications/${verification.session_id}/export?format=json`}
+              download
+              title="Download JSON report"
+            >
+              <FileJson className="h-3.5 w-3.5" />
+              JSON
+            </a>
+          </Button>
+          <Button asChild variant="secondary" size="sm">
+            <a
+              href={`${API_BASE}/api/verifications/${verification.session_id}/export?format=markdown`}
+              download
+              title="Download Markdown report"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Markdown
+            </a>
+          </Button>
+        </div>
       </div>
 
       {claims.length === 0 ? (

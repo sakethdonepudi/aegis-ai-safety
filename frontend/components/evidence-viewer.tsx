@@ -6,6 +6,32 @@ import { ClassificationBadge, CLASSIFICATION_META } from "@/components/classific
 import { cn, formatDate, formatScore } from "@/lib/utils";
 import type { Claim } from "@/lib/types";
 
+function HighlightNumbers({ text }: { text: string }) {
+  const parts = text.split(/(\d+(?:\.\d+)?%?)/g);
+  return (
+    <>
+      {parts.map((part, index) =>
+        /^\d/.test(part) ? (
+          <span
+            key={`${part}-${index}`}
+            className="rounded bg-insufficient/15 px-1 font-mono text-[0.95em] font-medium text-insufficient"
+          >
+            {part}
+          </span>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
+
+function relationshipClass(relationship: string | null): string {
+  if (relationship === "SUPPORTS") return "bg-supported/10 text-supported";
+  if (relationship === "CONTRADICTS") return "bg-contradicted/10 text-contradicted";
+  return "bg-panel-2 text-muted";
+}
+
 export function EvidenceViewer({ claim }: { claim: Claim | null }) {
   if (!claim) {
     return (
@@ -53,6 +79,15 @@ export function EvidenceViewer({ claim }: { claim: Claim | null }) {
           </p>
         </section>
 
+        {claim.numerical_analysis ? (
+          <section>
+            <h4 className="eyebrow">Deterministic numeric check</h4>
+            <p className="mt-2 rounded-md border border-border bg-panel-2/40 px-3.5 py-3 text-[11.5px] leading-5 text-fg/85">
+              <HighlightNumbers text={claim.numerical_analysis} />
+            </p>
+          </section>
+        ) : null}
+
         <section>
           <div className="flex items-center justify-between">
             <h4 className="eyebrow">Evidence passages</h4>
@@ -85,6 +120,14 @@ export function EvidenceViewer({ claim }: { claim: Claim | null }) {
                       <span className="truncate">{evidence.document_title}</span>
                     </span>
                     <span className="flex items-center gap-2 font-mono text-[9px] text-muted">
+                      <span
+                        className={cn(
+                          "rounded px-1.5 py-0.5",
+                          relationshipClass(evidence.evidence_relationship)
+                        )}
+                      >
+                        {evidence.evidence_relationship ?? "CONTEXT"}
+                      </span>
                       <span>PAGE {evidence.page_number ?? "—"}</span>
                       <span>·</span>
                       <span>PASSAGE {evidence.passage_id}</span>
@@ -120,6 +163,9 @@ export function EvidenceViewer({ claim }: { claim: Claim | null }) {
                 "No limitations were recorded. Automated judgments should still be reviewed by a researcher."}
             </p>
           </div>
+          <p className="mt-2 font-mono text-[9px] text-muted">
+            Human review recommendation: researcher review required before relying on this judgment.
+          </p>
         </section>
 
         <section className="border-t border-border pt-4">
@@ -139,6 +185,10 @@ export function EvidenceViewer({ claim }: { claim: Claim | null }) {
                   ? `${claim.position_start}–${claim.position_end}`
                   : "not preserved"}
               </dd>
+            </div>
+            <div>
+              <dt className="text-muted">Human review</dt>
+              <dd className="mt-0.5 text-fg">{claim.human_review_status}</dd>
             </div>
             <div>
               <dt className="text-muted">Evidence UUID</dt>

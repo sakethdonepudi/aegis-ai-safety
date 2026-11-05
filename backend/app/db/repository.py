@@ -7,7 +7,7 @@ from typing import Any, Iterable
 
 from app.core.config import Settings, get_settings
 from app.core.errors import NotFoundError
-from app.db.connection import insert_returning_id, query_all, transaction
+from app.db.connection import execute, insert_returning_id, query_all, transaction
 from app.models.domain import Classification, EvidenceReference, ExtractedClaim, PassageCandidate
 
 _TABLES = (
@@ -18,6 +18,13 @@ _TABLES = (
     "VERIFICATION_RESULTS",
     "EVIDENCE_LINKS",
 )
+
+_EVIDENCE_RELATIONSHIP = {
+    Classification.SUPPORTED: "SUPPORTS",
+    Classification.CONTRADICTED: "CONTRADICTS",
+    Classification.INSUFFICIENT_EVIDENCE: "CONTEXT",
+    Classification.VERIFICATION_ERROR: "CONTEXT",
+}
 
 
 class Db2Repository:
@@ -66,7 +73,8 @@ class Db2Repository:
             rows = query_all(
                 connection,
                 (
-                    "SELECT D.DOCUMENT_ID, D.TITLE, D.FILENAME, D.CONTENT_HASH, D.SOURCE_TYPE, D.CREATED_AT, "
+                    "SELECT D.DOCUMENT_ID, D.TITLE, D.FILENAME, D.CONTENT_HASH, D.SOURCE_TYPE, "
+                    "D.PROCESSING_STATUS, D.CREATED_AT, "
                     "(SELECT COUNT(*) FROM PASSAGES P WHERE P.DOCUMENT_ID = D.DOCUMENT_ID) AS PASSAGE_COUNT "
                     "FROM DOCUMENTS D WHERE D.CONTENT_HASH = ? FETCH FIRST 1 ROW ONLY"
                 ),
@@ -81,26 +89,26 @@ class Db2Repository:
         filename: str,
         content_hash: str,
         source_type: str,
-        passages: Iterable[tuple[str, int | None]],
+        passages: Iterable[tuple[str, int | None, int | None, int | None]],
     ) -> dict[str, Any]:
         with transaction() as connection:
             document_id = insert_returning_id(
                 connection,
                 (
-                    "INSERT INTO DOCUMENTS (TITLE, FILENAME, CONTENT_HASH, SOURCE_TYPE) "
-                    "VALUES (?, ?, ?, ?)"
+                    "INSERT INTO DOCUMENTS (TITLE, FILENAME, CONTENT_HASH, SOURCE_TYPE, PROCESSING_STATUS) "
+                    "VALUES (?, ?, ?, ?, 'READY')"
                 ),
                 (title, filename, content_hash, source_type),
             )
             count = 0
-            for index, (text, page_number) in enumerate(passages):
+            for index, (text, page_number, char_start, char_end) in enumerate(passages):
                 insert_returning_id(
                     connection,
                     (
-                        "INSERT INTO PASSAGES (DOCUMENT_ID, PASSAGE_TEXT, PAGE_NUMBER, PASSAGE_INDEX) "
-                        "VALUES (?, ?, ?, ?)"
+                        "INSERT INTO PASSAGES (DOCUMENT_ID, PASSAGE_TEXT, PAGE_NUMBER, PASSAGE_INDEX, "
+                        "CHAR_START, CHAR_END) VALUES (?, ?, ?, ?, ?, ?)"
                     ),
-                    (document_id, text, page_number, index),
+                    (document_id, text, page_number, index, char_start, char_end),
                 )
                 count += 1
             rows = query_all(
@@ -114,6 +122,7 @@ class Db2Repository:
             "filename": filename,
             "content_hash": content_hash,
             "source_type": source_type,
+            "processing_status": "READY",
             "passage_count": count,
             "created_at": rows[0]["created_at"],
         }
@@ -123,7 +132,8 @@ class Db2Repository:
             return query_all(
                 connection,
                 (
-                    "SELECT D.DOCUMENT_ID, D.TITLE, D.FILENAME, D.SOURCE_TYPE, D.CREATED_AT, "
+                    "SELECT D.DOCUMENT_ID, D.TITLE, D.FILENAME, D.SOURCE_TYPE, D.PROCESSING_STATUS, "
+                    "D.CREATED_AT, "
                     "(SELECT COUNT(*) FROM PASSAGES P WHERE P.DOCUMENT_ID = D.DOCUMENT_ID) AS PASSAGE_COUNT "
                     f"FROM DOCUMENTS D ORDER BY D.CREATED_AT DESC FETCH FIRST {int(limit)} ROWS ONLY"
                 ),
@@ -134,7 +144,7 @@ class Db2Repository:
             rows = query_all(
                 connection,
                 (
-                    "SELECT DOCUMENT_ID, TITLE, FILENAME, CONTENT_HASH, SOURCE_TYPE, CREATED_AT "
+                    "SELECT DOCUMENT_ID, TITLE, FILENAME, CONTENT_HASH, SOURCE_TYPE, PROCESSING_STATUS, CREATED_AT "
                     "FROM DOCUMENTS WHERE DOCUMENT_ID = ?"
                 ),
                 (document_id,),
@@ -144,12 +154,14 @@ class Db2Repository:
             passages = query_all(
                 connection,
                 (
-                    "SELECT PASSAGE_ID, DOCUMENT_ID, PASSAGE_TEXT, PAGE_NUMBER, PASSAGE_INDEX "
+                    "SELECT PASSAGE_ID, DOCUMENT_ID, PASSAGE_TEXT, PAGE_NUMBER, PASSAGE_INDEX, "
+                    "CHAR_START, CHAR_END "
                     "FROM PASSAGES WHERE DOCUMENT_ID = ? ORDER BY PASSAGE_INDEX"
                 ),
                 (document_id,),
             )
         document = rows[0]
+        document["passage_count"] = len(passages)
         document["passages"] = passages
         return document
 
@@ -195,25 +207,44 @@ class Db2Repository:
                 (submitted_text, model_provider),
             )
 
-    def set_session_status(self, session_id: int, status: str, error_message: str | None = None) -> None:
-        with transaction() as connection:
-            from app.db.connection import execute
+    def _finish_session(
+        self,
+        connection,
+        session_id: int,
+        status: str,
+        error_message: str | None = None,
+        duration_ms: int | None = None,
+    ) -> None:
+        execute(
+            connection,
+            (
+                "UPDATE VERIFICATION_SESSIONS SET STATUS = ?, ERROR_MESSAGE = ?, "
+                "COMPLETED_AT = CURRENT TIMESTAMP, DURATION_MS = ? WHERE SESSION_ID = ?"
+            ),
+            (status, error_message, duration_ms, session_id),
+        )
 
-            execute(
-                connection,
-                "UPDATE VERIFICATION_SESSIONS SET STATUS = ?, ERROR_MESSAGE = ? WHERE SESSION_ID = ?",
-                (status, error_message, session_id),
-            )
+    def set_session_status(
+        self,
+        session_id: int,
+        status: str,
+        error_message: str | None = None,
+        duration_ms: int | None = None,
+    ) -> None:
+        with transaction() as connection:
+            self._finish_session(connection, session_id, status, error_message, duration_ms)
+
+    def mark_session_failed(self, session_id: int, error_message: str, duration_ms: int | None) -> None:
+        self.set_session_status(session_id, "FAILED", error_message, duration_ms)
 
     def save_results(
         self,
         session_id: int,
         claims: list[tuple[ExtractedClaim, Any]],
         status: str = "COMPLETED",
+        duration_ms: int | None = None,
     ) -> None:
         """Persist claims, results, evidence links, and final status atomically."""
-        from app.db.connection import execute
-
         with transaction() as connection:
             for claim, assessment in claims:
                 claim_id = insert_returning_id(
@@ -235,38 +266,42 @@ class Db2Repository:
                     connection,
                     (
                         "INSERT INTO VERIFICATION_RESULTS (CLAIM_ID, CLASSIFICATION, EXPLANATION, LIMITATIONS, "
-                        "VERIFICATION_METHOD) VALUES (?, ?, ?, ?, ?)"
+                        "NUMERICAL_ANALYSIS, VERIFICATION_METHOD, HUMAN_REVIEW_STATUS) "
+                        "VALUES (?, ?, ?, ?, ?, ?, 'PENDING')"
                     ),
                     (
                         claim_id,
                         assessment.classification.value,
                         assessment.explanation,
                         assessment.limitations,
+                        getattr(assessment, "numerical_analysis", None),
                         assessment.verification_method,
                     ),
                 )
+                relationship = _EVIDENCE_RELATIONSHIP.get(assessment.classification, "CONTEXT")
                 for evidence in assessment.evidence:
                     insert_returning_id(
                         connection,
                         (
-                            "INSERT INTO EVIDENCE_LINKS (RESULT_ID, PASSAGE_ID, RELEVANCE_SCORE) "
-                            "VALUES (?, ?, ?)"
+                            "INSERT INTO EVIDENCE_LINKS (RESULT_ID, PASSAGE_ID, EVIDENCE_RELATIONSHIP, "
+                            "RELEVANCE_SCORE) VALUES (?, ?, ?, ?)"
                         ),
-                        (result_id, evidence.passage_id, round(evidence.relevance_score, 6)),
+                        (
+                            result_id,
+                            evidence.passage_id,
+                            relationship,
+                            round(evidence.relevance_score, 6),
+                        ),
                     )
-            execute(
-                connection,
-                "UPDATE VERIFICATION_SESSIONS SET STATUS = ?, ERROR_MESSAGE = NULL WHERE SESSION_ID = ?",
-                (status, session_id),
-            )
+            self._finish_session(connection, session_id, status, None, duration_ms)
 
     def list_sessions(self, limit: int = 25) -> list[dict]:
         with transaction() as connection:
             sessions = query_all(
                 connection,
                 (
-                    "SELECT S.SESSION_ID, S.STATUS, S.MODEL_PROVIDER, S.CREATED_AT, "
-                    "LEFT(S.SUBMITTED_TEXT, 240) AS PREVIEW, "
+                    "SELECT S.SESSION_ID, S.STATUS, S.MODEL_PROVIDER, S.CREATED_AT, S.COMPLETED_AT, "
+                    "S.DURATION_MS, LEFT(S.SUBMITTED_TEXT, 240) AS PREVIEW, "
                     "(SELECT COUNT(*) FROM CLAIMS C WHERE C.SESSION_ID = S.SESSION_ID) AS TOTAL_CLAIMS "
                     f"FROM VERIFICATION_SESSIONS S ORDER BY S.CREATED_AT DESC FETCH FIRST {int(limit)} ROWS ONLY"
                 ),
@@ -296,8 +331,8 @@ class Db2Repository:
             sessions = query_all(
                 connection,
                 (
-                    "SELECT SESSION_ID, SUBMITTED_TEXT, MODEL_PROVIDER, STATUS, ERROR_MESSAGE, CREATED_AT "
-                    "FROM VERIFICATION_SESSIONS WHERE SESSION_ID = ?"
+                    "SELECT SESSION_ID, SUBMITTED_TEXT, MODEL_PROVIDER, STATUS, ERROR_MESSAGE, CREATED_AT, "
+                    "COMPLETED_AT, DURATION_MS FROM VERIFICATION_SESSIONS WHERE SESSION_ID = ?"
                 ),
                 (session_id,),
             )
@@ -309,7 +344,8 @@ class Db2Repository:
                 (
                     "SELECT C.CLAIM_ID, C.ORIGINAL_CLAIM, C.NORMALIZED_CLAIM, C.CLAIM_TYPE, "
                     "C.POSITION_START, C.POSITION_END, R.RESULT_ID, R.CLASSIFICATION, R.EXPLANATION, "
-                    "R.LIMITATIONS, R.VERIFICATION_METHOD, R.CREATED_AT AS RESULT_CREATED_AT "
+                    "R.LIMITATIONS, R.NUMERICAL_ANALYSIS, R.HUMAN_REVIEW_STATUS, R.VERIFICATION_METHOD, "
+                    "R.CREATED_AT AS RESULT_CREATED_AT "
                     "FROM CLAIMS C LEFT JOIN VERIFICATION_RESULTS R ON R.CLAIM_ID = C.CLAIM_ID "
                     "WHERE C.SESSION_ID = ? ORDER BY C.CLAIM_ID"
                 ),
@@ -318,7 +354,8 @@ class Db2Repository:
             evidence = query_all(
                 connection,
                 (
-                    "SELECT E.RESULT_ID, E.PASSAGE_ID, E.RELEVANCE_SCORE, P.PASSAGE_TEXT, P.PAGE_NUMBER, "
+                    "SELECT E.RESULT_ID, E.PASSAGE_ID, E.RELEVANCE_SCORE, E.EVIDENCE_RELATIONSHIP, "
+                    "P.PASSAGE_TEXT, P.PAGE_NUMBER, "
                     "P.PASSAGE_INDEX, D.DOCUMENT_ID, D.TITLE AS DOCUMENT_TITLE, D.FILENAME "
                     "FROM EVIDENCE_LINKS E "
                     "JOIN PASSAGES P ON P.PASSAGE_ID = E.PASSAGE_ID "
@@ -355,7 +392,5 @@ class Db2Repository:
     def truncate_all(self) -> None:
         """Used only by integration tests and explicit local resets."""
         with transaction() as connection:
-            from app.db.connection import execute
-
             for table in reversed(_TABLES):
                 execute(connection, f"DELETE FROM {table}")

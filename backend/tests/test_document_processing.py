@@ -7,6 +7,7 @@ import pytest
 from app.core.errors import DocumentProcessingError, UploadValidationError
 from app.services.document_processing import (
     chunk_text,
+    chunk_text_with_offsets,
     process_text,
     process_upload,
     sanitize_filename,
@@ -32,6 +33,18 @@ def test_process_text_produces_stable_hash_and_pages():
     assert len(processed.content_hash) == 64
     assert processed.passages[0][1] == 1
     assert "92%" in processed.passages[0][0]
+    assert processed.passages[0][2] == 0
+    assert processed.passages[0][3] is not None
+
+
+def test_chunk_offsets_point_into_cleaned_text():
+    text = "First sentence with 10% value. Second sentence with 20% value."
+    chunks = chunk_text_with_offsets(text, target_chars=200)
+    assert len(chunks) == 1
+    chunk, start, end = chunks[0]
+    assert start == 0
+    assert end == len(chunk)
+    assert text[start:end] == chunk
 
 
 def test_process_upload_rejects_unknown_extensions():

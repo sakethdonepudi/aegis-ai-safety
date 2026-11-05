@@ -20,3 +20,16 @@ The dual-layer anti-reflective coating reduced manufacturing cost by 15% compare
 The trial did not evaluate performance under high-humidity or desert conditions. No field deployment data were collected, and no long-term degradation testing was performed. The authors state that outdoor performance remains unknown.
 
 A separate thermal stability test measured a 2% efficiency loss after 500 hours at 60 degrees Celsius. That test used a different cell batch and is not directly comparable to the main efficiency result.`;
+
+// Real-paper demonstration. The evidence documents are the actual arXiv PDFs,
+// downloaded and ingested with `make demo-papers`; these claims are synthetic.
+export const PAPER_DEMO_TITLES = [
+  "Attention Is All You Need",
+  "BERT: Pre-training of Deep Bidirectional Transformers",
+];
+
+export const PAPER_DEMO_RESPONSE =
+  "The Transformer achieved 28.4 BLEU on the WMT 2014 English-to-German translation task. " +
+  "The Transformer encoder consists of 8 identical layers. " +
+  "BERT is pre-trained with a unidirectional language model rather than a bidirectional one. " +
+  "The Transformer reduced inference latency on mobile devices by 50%.";

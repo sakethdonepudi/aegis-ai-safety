@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, Query, Response
 
 from app.api.deps import get_pipeline, get_repository
 from app.db.repository import Db2Repository
@@ -13,6 +13,7 @@ from app.schemas.verification import (
     VerifyRequest,
 )
 from app.services.pipeline import VerificationPipeline
+from app.services.report_generator import build_json_report, build_markdown_report
 
 router = APIRouter(tags=["verification"])
 
@@ -40,6 +41,30 @@ def list_verifications(
     sessions = repository.list_sessions(limit=safe_limit)
     return VerificationListResponse(
         verifications=[VerificationSummary(**session) for session in sessions]
+    )
+
+
+@router.get("/api/verifications/{session_id}/export")
+def export_verification(
+    session_id: int = Path(gt=0),
+    format: str = Query("json", pattern="^(json|markdown|md)$"),
+    repository: Db2Repository = Depends(get_repository),
+) -> Response:
+    session = repository.get_session(session_id)
+    if format in ("markdown", "md"):
+        body = build_markdown_report(session)
+        media_type = "text/markdown; charset=utf-8"
+        extension = "md"
+    else:
+        body = build_json_report(session)
+        media_type = "application/json"
+        extension = "json"
+    return Response(
+        content=body,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="aegis-session-{session_id}.{extension}"'
+        },
     )
 
 

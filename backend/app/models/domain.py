@@ -54,6 +54,7 @@ class ClaimAssessment:
     explanation: str
     limitations: str
     evidence: list[EvidenceReference] = field(default_factory=list)
+    numerical_analysis: str | None = None
     verification_method: str = "langchain_llm+db2_lexical_retrieval"
 
 

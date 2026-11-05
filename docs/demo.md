@@ -1,103 +1,76 @@
 # AEGIS Demonstration
 
-## What the demo is
+## Two demos
 
-A small, **clearly labelled synthetic** study about a fictional technology,
-"SolarCell-X". All numbers are fictional. The demo exists to exercise the real
-pipeline: claim extraction → Db2 retrieval → LangChain assessment → evidence
-validation → Db2 persistence → dashboard rendering.
-
-No classification is hardcoded. The same workflow accepts any new research text and
-evidence.
-
-## Demo inputs
-
-Research text (`data/samples/synthetic_research_text.txt` or the **Load demo** button):
-
-1. SolarCell-X achieved a conversion efficiency of 92% under standard test conditions.
-2. The dual-layer anti-reflective coating reduced manufacturing cost by 40% compared
-   with the baseline production process.
-3. SolarCell-X cells retained 95% of their initial efficiency after five years of outdoor
-   operation.
-
-Evidence (`data/samples/synthetic_solarcell_study.txt`):
-
-- The trial reports **92%** conversion efficiency under standard test conditions.
-- The coating reduced manufacturing cost by **15%**, not 40%.
-- The trial did **not evaluate** outdoor conditions and performed **no long-term
-  degradation testing**, so the five-year retention claim is unsupported.
-
-The three statements are designed to exercise the three substantive outcomes:
-
-- Claim 1 has an explicit supporting passage → expected `SUPPORTED`.
-- Claim 2 conflicts with the stated 15% → expected `CONTRADICTED`.
-- Claim 3 is not established by the evidence; the absence of long-term testing is not
-  proof that the retention figure is false → expected `INSUFFICIENT_EVIDENCE`.
-
-These are the intended outcomes, not hardcoded results. The configured model may make
-a different judgment, and AEGIS records what actually happened along with limitations.
-
-## Run it
-
-```bash
-cp .env.example .env
-# configure DB2_* and LLM_*
-make db-init
-make db-seed
-make dev-backend      # terminal 1
-make dev-frontend     # terminal 2
-```
-
-Open `http://localhost:3000` and click **Load demo**, then **Verify research claims**.
-
-The demo uses pasted evidence, so it works even if `db-seed` was not run. The seeded
-document is useful for the evidence library and history view.
-
-## API-only demo
-
-```bash
-python3 - <<'PY'
-import json, pathlib
-text = pathlib.Path("data/samples/synthetic_research_text.txt").read_text()
-evidence = pathlib.Path("data/samples/synthetic_solarcell_study.txt").read_text()
-print(json.dumps({"submitted_text": text, "document_ids": [], "evidence_text": evidence,
-                  "evidence_title": "Synthetic demo — SolarCell-X trial (fictional)"}))
-PY
-```
-
-Send the resulting JSON:
-
-```bash
-curl -s -X POST http://localhost:8000/api/verify \
-  -H "Content-Type: application/json" \
-  -d @payload.json | python3 -m json.tool
-```
-
-## What to look for in the UI
-
-- **Overview:** total claims and the distribution across supported, contradicted,
-  insufficient evidence, and errors.
-- **Claim inspector:** each atomic claim with its classification.
-- **Evidence viewer:** the exact retrieved passage, document title, page and passage
-  reference, retrieval score, explanation, limitations, and verification method.
-- **No evidence link:** an insufficient-evidence claim explains that missing evidence
-  is not contradiction.
-- **History:** reopen the same session; data comes from Db2, not browser state.
-
-## Verified local result
-
-On 2026-11-05 the demo was executed through the real UI → FastAPI → LangChain →
-Db2 path using `qwen2.5:7b-instruct` served by Ollama (temperature 0). The synthetic
-session produced:
-
-| Claim | Classification | Evidence |
+| Demo | Evidence | Purpose |
 | --- | --- | --- |
-| SolarCell-X achieved 92% efficiency under standard test conditions | `SUPPORTED` | Passage 61, page 1 |
-| The coating reduced manufacturing cost by 40% | `CONTRADICTED` | Passage 61 (source says 15%) |
-| Cells retained 95% efficiency after five years outdoors | `INSUFFICIENT_EVIDENCE` | 2 retrieved passages; none establish it |
+| **Paper demo** | Real arXiv PDFs: *Attention Is All You Need* and *BERT* | Default P0 demonstration with actual source text, page numbers, and a numeric discrepancy |
+| **Synthetic demo** | Fictional SolarCell-X study | Offline/fallback demonstration with clearly synthetic evidence |
 
-The session (3 claims, 1/1/1) was persisted in Db2 and reopened from the history panel.
-A real-model run takes roughly 30–100 seconds for three claims on a local 7B model.
-This is a **synthetic demonstration, not a SciFact benchmark result**.
+The paper demo is the primary controlled example. The research response is an
+AI-generated-style summary written for the demo; the evidence is the real published
+paper text. No classification is hardcoded, and the same pipeline accepts new inputs.
 
-Synthetic demo output is never presented as SciFact benchmark performance.
+## Prepare the paper demo
+
+```bash
+make demo-papers
+```
+
+This downloads:
+
+- https://arxiv.org/pdf/1706.03762v7
+- https://arxiv.org/pdf/1810.04805v2
+
+into `data/samples/papers/` and ingests them into Db2 with PyMuPDF. The PDFs are not
+committed to the repository.
+
+You can also upload the two PDFs through the UI. Then click **Paper demo** to select
+the matching documents in the library.
+
+## Controlled claims
+
+| # | Claim | Expected outcome | Evidence |
+| --- | --- | --- | --- |
+| 1 | The Transformer achieved 28.4 BLEU on WMT 2014 English-to-German. | `SUPPORTED` | Attention paper, p. 8 |
+| 2 | The Transformer encoder consists of 8 identical layers. | `CONTRADICTED` + numerical conflict (source: 6) | Attention paper, p. 3 |
+| 3 | BERT is pre-trained with a unidirectional language model rather than a bidirectional one. | `CONTRADICTED` | BERT paper, p. 1 |
+| 4 | The Transformer reduced inference latency on mobile devices by 50%. | `INSUFFICIENT_EVIDENCE` | No supporting passage in either paper |
+
+The deterministic numeric checker compares simple literal quantities. For claim 2 it
+reports that the claim states 8 layers while the cited passage states 6, and AEGIS
+records that conflict in the explanation and numerical-analysis field.
+
+## Verified local run
+
+On 2026-11-05, the paper demo was executed through the real UI → FastAPI → LangChain →
+Db2 path using `qwen2.5:7b-instruct` served by Ollama at temperature 0. The session
+completed with:
+
+- 4 claims total
+- 1 supported
+- 2 contradicted
+- 1 insufficient evidence
+- 0 verification errors
+- approximately 145 seconds of verification time
+
+The session and evidence links were persisted in Db2 and reopened from the history
+panel. This is a synthetic demonstration, **not** a SciFact benchmark result.
+
+## Synthetic demo
+
+The **Synthetic** button loads fictional SolarCell-X claims and evidence without
+requiring the arXiv downloads. It exercises supported, contradicted, and
+insufficient-evidence outcomes. The evidence document is clearly labelled as
+fictional.
+
+## What to inspect in the UI
+
+- **Overview:** totals, classifications, duration, and model/provider.
+- **Claim inspector:** each claim, classification, evidence passage, page, passage ID,
+  relationship, retrieval score, explanation, limitations, and numeric check.
+- **Export:** download the session as JSON or Markdown from the claim inspector.
+- **History:** reopen the session from Db2.
+- **Evaluation:** clearly labelled empty state until a real SciFact run exists.
+
+Synthetic/demo output is never presented as SciFact benchmark performance.
