@@ -282,7 +282,10 @@ Returns measured SciFact metrics only if a real result file exists at
 }
 ```
 
-No placeholder accuracy is generated.
+The endpoint reads a real metrics file if present, preferring
+`experiments/results/scifact_test_metrics.json`, then
+`experiments/results/scifact_dev_metrics.json`; otherwise it returns an explicit
+`not_run` state. It never generates placeholder accuracy.
 
 ## Limits and security
 

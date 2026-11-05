@@ -40,6 +40,7 @@ INDEXES_FILE = Path(__file__).with_name("indexes.sql")
 # applies each migration once, so existing local databases are upgraded safely.
 COLUMN_MIGRATIONS = [
     ("DOCUMENTS", "PROCESSING_STATUS", "VARCHAR(32) NOT NULL DEFAULT 'READY'"),
+    ("DOCUMENTS", "EXTERNAL_ID", "VARCHAR(100)"),
     ("PASSAGES", "CHAR_START", "INTEGER"),
     ("PASSAGES", "CHAR_END", "INTEGER"),
     ("VERIFICATION_SESSIONS", "COMPLETED_AT", "TIMESTAMP"),

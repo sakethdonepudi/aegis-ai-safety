@@ -11,7 +11,13 @@ class FakeRepository:
         self.candidates = candidates
         self.calls: list[tuple[list[int], list[str]]] = []
 
-    def candidate_passages(self, document_ids: list[int], tokens: list[str], limit: int = 500):
+    def candidate_passages(
+        self,
+        document_ids: list[int] | None,
+        tokens: list[str],
+        limit: int = 500,
+        source_type: str | None = None,
+    ):
         self.calls.append((document_ids, tokens))
         return self.candidates
 

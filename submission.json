@@ -40,7 +40,7 @@
     "JSON and Markdown report export",
     "Verification history and session reopening",
     "Document detail API and evaluation status endpoint",
-    "SciFact evaluation harness and metrics (no benchmark executed)"
+    "SciFact evaluation harness executed on a 100-claim balanced dev subset"
   ],
   "classifications": [
     "SUPPORTED",
@@ -79,8 +79,22 @@
   },
   "evaluation": {
     "dataset": "SciFact",
+    "split": "dev (test labels are not public)",
     "license": "CC BY-NC 2.0",
-    "benchmark_executed": false,
+    "benchmark_executed": true,
+    "evaluated_claims": 100,
+    "subset": "balanced 100 of 300 labelled dev claims",
+    "model": "qwen2.5:7b-instruct (local Ollama)",
+    "macro_f1": 0.615,
+    "accuracy": 0.63,
+    "retrieval_recall": {
+      "at_1": 0.57,
+      "at_5": 0.77,
+      "at_10": 0.8
+    },
+    "verification_errors": 0,
+    "mean_latency_ms": 24933.393,
+    "results_file": "experiments/results/scifact_dev_metrics.json",
     "results_exposed_only_if_present": true,
     "metrics_implemented": [
       "macro_f1",

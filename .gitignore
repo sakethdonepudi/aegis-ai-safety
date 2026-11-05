@@ -40,6 +40,7 @@ yarn-error.log*
 database/local/
 data/uploads/
 data/samples/papers/*.pdf
+data/scifact/
 /tmp/
 
 # OS / editor

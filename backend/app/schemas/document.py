@@ -14,6 +14,7 @@ class DocumentResponse(BaseModel):
     content_hash: str
     source_type: str
     processing_status: str = "READY"
+    external_id: str | None = None
     passage_count: int
     created_at: datetime
     already_existed: bool = False
@@ -41,6 +42,7 @@ class PassageSummary(BaseModel):
 
 class DocumentDetail(DocumentSummary):
     content_hash: str
+    external_id: str | None = None
     passages: list[PassageSummary] = Field(default_factory=list)
 
 

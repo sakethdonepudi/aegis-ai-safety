@@ -71,9 +71,17 @@ and not a production-hardened service.
 - SciFact is **not** bundled and is licensed CC BY-NC 2.0 (non-commercial).
 - The harness supports macro F1, per-class precision/recall, confusion matrix,
   false-positive analysis, retrieval Recall@K, and latency statistics.
-- **No benchmark has been executed.** No F1, accuracy, or latency number in this
-  repository should be read as a benchmark result. The Evaluation section shows an
-  explicit empty state when no result file exists.
+- The measured run used a **balanced 100-claim subset of the 300 labelled dev claims**
+  (34 supported / 33 contradicted / 33 insufficient), not the full split and not the
+  hidden-label test split. Macro F1 was 0.615 and retrieval Recall@10 was 0.80 with
+  local `qwen2.5:7b-instruct`.
+- Contradiction recall (0.364) is the main weakness; 15 of 33 contradicted claims were
+  classified as insufficient evidence. Retrieval Recall@10 (0.80) bounds classification
+  performance.
+- This is a single-model, single-run result. Do not claim statistical significance or
+  general superiority from it.
+- The Evaluation section shows measured results only when a real metrics file exists;
+  otherwise it shows an explicit empty state.
 - Synthetic/paper demo outcomes are not benchmark evidence.
 - SciFact labels are SUPPORT / CONTRADICT / NEI, mapped to AEGIS's three substantive
   classes. `VERIFICATION_ERROR` is operational, not a gold label.

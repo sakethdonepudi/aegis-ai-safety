@@ -37,8 +37,8 @@ Strict rules:
 
 Return strict JSON only:
 {"classification": "SUPPORTED|CONTRADICTED|INSUFFICIENT_EVIDENCE",
- "explanation": "one short paragraph citing passage IDs",
- "limitations": "one short paragraph",
+ "explanation": "one or two sentences, maximum 40 words, citing passage IDs",
+ "limitations": "one sentence, maximum 30 words",
  "evidence": [{"passage_id": 123, "quote": "exact supporting or conflicting excerpt"}]}
 """
 
@@ -81,8 +81,9 @@ def _format_passages(candidates: list[PassageCandidate]) -> str:
 
 
 class ClaimVerificationService:
-    def __init__(self, llm: LLMClient) -> None:
+    def __init__(self, llm: LLMClient, repair_explanations: bool = True) -> None:
         self.llm = llm
+        self.repair_explanations = repair_explanations
 
     def verify(
         self, claim: ExtractedClaim, candidates: list[PassageCandidate]
@@ -171,6 +172,46 @@ class ClaimVerificationService:
         explanation = str(payload.get("explanation") or "").strip()
         limitations = str(payload.get("limitations") or "").strip()
 
+        numerical_all = check_numerics(claim.original_claim, candidates)
+        numeric_override = False
+        if (
+            numerical_all is not None
+            and numerical_all.has_discrepancy
+            and not numerical_all.matches
+            and classification
+            in (
+                Classification.SUPPORTED,
+                Classification.CONTRADICTED,
+                Classification.INSUFFICIENT_EVIDENCE,
+            )
+        ):
+            # Attach the conflicting passage even when the model failed to cite it.
+            for passage_id in numerical_all.discrepant_passage_ids:
+                if passage_id in by_id and passage_id not in seen_ids:
+                    candidate = by_id[passage_id]
+                    cited.append(
+                        EvidenceReference(
+                            passage_id=passage_id,
+                            relevance_score=candidate.retrieval_score,
+                            document_title=candidate.document_title,
+                            page_number=candidate.page_number,
+                        )
+                    )
+                    seen_ids.add(passage_id)
+            classification = Classification.CONTRADICTED
+            numeric_override = True
+            explanation = (
+                "Deterministic numeric comparison found a conflict. "
+                + " ".join(numerical_all.discrepancies)
+                + " The model's original explanation was not used for this numerical claim "
+                "because it did not account for the cited value."
+            )
+            limitations = (
+                (limitations + " " if limitations else "")
+                + "The numeric check compares simple literal expressions and does not validate "
+                "advanced statistics or unit conversions."
+            ).strip()
+
         # Hard guard: an evidence-linked judgment is mandatory. If the model
         # cites only fabricated IDs, the result cannot be trusted as support or
         # contradiction, so it is downgraded rather than presented as verified.
@@ -195,7 +236,7 @@ class ClaimVerificationService:
         if not limitations:
             limitations = "No limitations were supplied by the verification model."
 
-        if cited and (
+        if not numeric_override and self.repair_explanations and cited and (
             len(explanation.strip()) < 50
             or _WEAK_EXPLANATION.fullmatch(explanation.strip())
         ):
@@ -204,39 +245,23 @@ class ClaimVerificationService:
                 explanation = improved
 
         numerical = (
-            check_numerics(
-                claim.original_claim,
-                [by_id[reference.passage_id] for reference in cited],
+            numerical_all
+            if numeric_override
+            else (
+                check_numerics(
+                    claim.original_claim,
+                    [by_id[reference.passage_id] for reference in cited],
+                )
+                if cited
+                else None
             )
-            if cited
-            else None
         )
         numerical_analysis = numerical.summary if numerical else None
-        verification_method = "langchain_llm+db2_lexical_retrieval"
-
-        # Deterministic numeric consistency check. This only overrides the model
-        # when the claim states an explicit simple quantity, the cited passage
-        # states a different value for the same quantity, and no cited value
-        # matches. It never turns "not found" into a contradiction.
-        if (
-            numerical is not None
-            and numerical.has_discrepancy
-            and not numerical.matches
-            and classification in (Classification.SUPPORTED, Classification.INSUFFICIENT_EVIDENCE)
-        ):
-            classification = Classification.CONTRADICTED
-            explanation = (
-                "Deterministic numeric comparison found a conflict. "
-                + " ".join(numerical.discrepancies)
-                + " The model's original explanation was not used for this numerical claim "
-                "because it did not account for the cited value."
-            )
-            limitations = (
-                (limitations + " " if limitations else "")
-                + "The numeric check compares simple literal expressions and does not validate "
-                "advanced statistics or unit conversions."
-            ).strip()
-            verification_method = "langchain_llm+db2_lexical_retrieval+deterministic_numeric_check"
+        verification_method = (
+            "langchain_llm+db2_lexical_retrieval+deterministic_numeric_check"
+            if numeric_override
+            else "langchain_llm+db2_lexical_retrieval"
+        )
 
         return ClaimAssessment(
             classification=classification,

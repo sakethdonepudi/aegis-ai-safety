@@ -26,7 +26,15 @@ _STOPWORDS = {
 
 
 class RetrievalBackend(Protocol):
-    def retrieve(self, claim: ExtractedClaim, document_ids: list[int]) -> list[PassageCandidate]: ...
+    def retrieve(
+        self,
+        claim: ExtractedClaim,
+        document_ids: list[int],
+        *,
+        corpus_wide: bool = False,
+        source_type: str | None = None,
+        top_k: int | None = None,
+    ) -> list[PassageCandidate]: ...
 
 
 def tokenize(text: str) -> list[str]:
@@ -73,11 +81,23 @@ class LexicalRetrievalBackend:
         self.repository = repository
         self.top_k = top_k
 
-    def retrieve(self, claim: ExtractedClaim, document_ids: list[int]) -> list[PassageCandidate]:
+    def retrieve(
+        self,
+        claim: ExtractedClaim,
+        document_ids: list[int],
+        *,
+        corpus_wide: bool = False,
+        source_type: str | None = None,
+        top_k: int | None = None,
+    ) -> list[PassageCandidate]:
         tokens = tokenize(f"{claim.original_claim} {claim.normalized_claim}")
-        if not tokens or not document_ids:
+        if not tokens or (not corpus_wide and not document_ids):
             return []
-        candidates = self.repository.candidate_passages(document_ids, tokens[:12])
+        candidates = self.repository.candidate_passages(
+            None if corpus_wide else document_ids,
+            tokens[:12],
+            source_type=source_type,
+        )
         if not candidates:
             return []
         tokenized = [tokenize(candidate.passage_text) for candidate in candidates]
@@ -85,13 +105,14 @@ class LexicalRetrievalBackend:
         ranked = sorted(
             zip(candidates, scores), key=lambda item: item[1], reverse=True
         )
+        limit = top_k or self.top_k
         results: list[PassageCandidate] = []
         for candidate, score in ranked:
             if score <= 0:
                 continue
             candidate.retrieval_score = float(score)
             results.append(candidate)
-            if len(results) >= self.top_k:
+            if len(results) >= limit:
                 break
         return results
 

@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     llm_max_retries: int = 2
     llm_max_claims: int = 25
     llm_evidence_top_k: int = 6
+    llm_max_tokens: int = 1500
 
     @property
     def cors_origins(self) -> list[str]:

@@ -115,3 +115,25 @@ def test_numeric_conflict_overrides_insufficient_model_judgment():
     assert "deterministic_numeric_check" in result.verification_method
     assert result.numerical_analysis is not None
     assert "6 identical layers" in result.numerical_analysis
+
+
+def test_numeric_conflict_attaches_evidence_without_model_citation():
+    numeric_claim = ExtractedClaim(
+        original_claim="The encoder consists of 8 identical layers.",
+        normalized_claim="The encoder consists of 8 identical layers.",
+        claim_type="NUMERICAL",
+    )
+    numeric_passage = PassageCandidate(
+        passage_id=22,
+        document_id=1,
+        document_title="Attention Is All You Need",
+        filename="paper.pdf",
+        passage_text="The encoder is composed of a stack of N = 6 identical layers.",
+        page_number=3,
+        passage_index=0,
+        retrieval_score=4.0,
+    )
+    payload = verification_response("INSUFFICIENT_EVIDENCE", [])
+    result = service_returning(payload).verify(numeric_claim, [numeric_passage])
+    assert result.classification == Classification.CONTRADICTED
+    assert [item.passage_id for item in result.evidence] == [22]

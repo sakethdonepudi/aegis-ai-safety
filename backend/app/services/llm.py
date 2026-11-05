@@ -51,6 +51,7 @@ class LangChainLLMClient:
             "temperature": self.settings.llm_temperature,
             "timeout": self.settings.llm_timeout_seconds,
             "max_retries": self.settings.llm_max_retries,
+            "max_tokens": self.settings.llm_max_tokens,
         }
         if self.settings.llm_base_url:
             model_kwargs["base_url"] = self.settings.llm_base_url

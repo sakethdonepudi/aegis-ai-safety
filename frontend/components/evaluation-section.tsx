@@ -22,11 +22,12 @@ interface ClassificationMetrics {
     string,
     { precision?: number; recall?: number; f1?: number; support?: number }
   >;
+  confusion_matrix?: Record<string, Record<string, number>>;
 }
 
 interface EvaluationResults {
   classification?: ClassificationMetrics;
-  retrieval?: Record<string, { k?: number; recall?: number; n?: number }>;
+  retrieval?: Record<string, { k?: number; recall?: number; n?: number } | number>;
   latency?: { n?: number; mean_ms?: number | null; median_ms?: number | null; p95_ms?: number | null };
 }
 
@@ -91,24 +92,71 @@ export function EvaluationSection({ evaluation }: { evaluation: EvaluationData |
               </table>
             </div>
 
+            {results.classification?.confusion_matrix ? (
+              <div>
+                <p className="eyebrow mb-2">Confusion matrix (gold rows / predicted columns)</p>
+                <div className="overflow-x-auto rounded-md border border-border">
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="bg-panel-2 font-mono text-[9px] uppercase tracking-wider text-muted">
+                      <tr>
+                        <th className="px-3 py-2">Gold</th>
+                        {Object.keys(results.classification.confusion_matrix).map((label) => (
+                          <th key={label} className="px-3 py-2">{label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {Object.entries(results.classification.confusion_matrix).map(([gold, row]) => (
+                        <tr key={gold}>
+                          <td className="px-3 py-2 font-mono text-fg">{gold}</td>
+                          {Object.keys(results.classification?.confusion_matrix ?? {}).map((label) => (
+                            <td key={label} className="px-3 py-2 tabular-nums">
+                              {row[label] ?? 0}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-md border border-border bg-panel-2/40 px-3.5 py-3">
                 <p className="eyebrow">Retrieval</p>
                 <div className="mt-2 space-y-1 font-mono text-[11px] text-fg">
-                  {Object.entries(results.retrieval ?? {}).map(([name, value]) => (
-                    <p key={name}>
-                      {name.replaceAll("_", " ")}: {formatMetric(value.recall)}
-                    </p>
-                  ))}
+                  {Object.entries(results.retrieval ?? {})
+                    .filter(([, value]) => typeof value === "object" && value !== null && "recall" in value)
+                    .map(([name, value]) => (
+                      <p key={name}>
+                        {name.replaceAll("_", " ")}: {formatMetric((value as { recall?: number }).recall)}
+                      </p>
+                    ))}
                   {!results.retrieval ? <p className="text-muted">Not measured</p> : null}
                 </div>
               </div>
               <div className="rounded-md border border-border bg-panel-2/40 px-3.5 py-3">
                 <p className="eyebrow">Latency</p>
                 <div className="mt-2 space-y-1 font-mono text-[11px] text-fg">
-                  <p>Mean: {results.latency?.mean_ms ?? "—"} ms</p>
-                  <p>Median: {results.latency?.median_ms ?? "—"} ms</p>
-                  <p>p95: {results.latency?.p95_ms ?? "—"} ms</p>
+                  <p>
+                    Mean:{" "}
+                    {typeof results.latency?.mean_ms === "number"
+                      ? `${(results.latency.mean_ms / 1000).toFixed(1)} s`
+                      : "—"}
+                  </p>
+                  <p>
+                    Median:{" "}
+                    {typeof results.latency?.median_ms === "number"
+                      ? `${(results.latency.median_ms / 1000).toFixed(1)} s`
+                      : "—"}
+                  </p>
+                  <p>
+                    p95:{" "}
+                    {typeof results.latency?.p95_ms === "number"
+                      ? `${(results.latency.p95_ms / 1000).toFixed(1)} s`
+                      : "—"}
+                  </p>
                 </div>
               </div>
             </div>

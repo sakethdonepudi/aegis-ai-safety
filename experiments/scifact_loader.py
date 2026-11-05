@@ -1,10 +1,11 @@
 """SciFact loading interface for reproducible evaluation.
 
 SciFact is distributed under CC BY-NC 2.0; it is not bundled with AEGIS.
-Download the dataset through the official repository or HuggingFace:
+Download the dataset from the official release archive:
 
-    https://github.com/allenai/scifact
-    https://huggingface.co/datasets/allenai/scifact
+    https://scifact.s3-us-west-2.amazonaws.com/release/latest/data.tar.gz
+
+or through HuggingFace: https://huggingface.co/datasets/allenai/scifact
 
 The loader accepts either the official JSONL files or an exported JSON list.
 """
@@ -31,6 +32,13 @@ class ScifactClaim:
     gold_label: str
     cited_doc_ids: tuple[int, ...]
     evidence_doc_ids: tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ScifactDocument:
+    doc_id: int
+    title: str
+    text: str
 
 
 def _records(path: Path) -> list[dict]:
@@ -108,6 +116,33 @@ def load_scifact_claims(path: str | Path) -> list[ScifactClaim]:
             )
         )
     return claims
+
+
+def load_scifact_corpus(path: str | Path) -> list[ScifactDocument]:
+    """Load the SciFact corpus JSONL (title + abstract sentences)."""
+    corpus_path = Path(path)
+    if not corpus_path.exists():
+        raise FileNotFoundError(
+            f"SciFact corpus file not found: {corpus_path}. "
+            "Download the SciFact data archive from https://scifact.s3-us-west-2.amazonaws.com/release/latest/data.tar.gz"
+        )
+    documents: list[ScifactDocument] = []
+    for record in _records(corpus_path):
+        try:
+            doc_id = int(record["doc_id"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        title = str(record.get("title") or "").strip()
+        abstract = record.get("abstract") or []
+        if isinstance(abstract, list):
+            abstract_text = " ".join(str(sentence).strip() for sentence in abstract)
+        else:
+            abstract_text = str(abstract).strip()
+        if not title and not abstract_text:
+            continue
+        text = f"{title}\n\n{abstract_text}".strip()
+        documents.append(ScifactDocument(doc_id=doc_id, title=title or f"SciFact {doc_id}", text=text))
+    return documents
 
 
 def load_predictions(path: str | Path) -> dict[str, dict]:
