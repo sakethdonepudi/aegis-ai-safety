@@ -16,6 +16,8 @@ def test_macro_f1_perfect_predictions():
     labels = ["SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"]
     metrics = classification_metrics(labels, labels)
     assert metrics["macro_f1"] == 1.0
+    assert metrics["macro_precision"] == 1.0
+    assert metrics["macro_recall"] == 1.0
     assert metrics["accuracy"] == 1.0
     assert metrics["false_positive_analysis"]["total"] == 0
 

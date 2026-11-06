@@ -11,14 +11,11 @@
     "errors": 0,
     "coverage": 1.0,
     "gold_label_distribution": {
-      "SUPPORTED": 34,
-      "CONTRADICTED": 33,
-      "INSUFFICIENT_EVIDENCE": 33
+      "SUPPORTED": 45,
+      "CONTRADICTED": 20,
+      "INSUFFICIENT_EVIDENCE": 35
     },
-    "note": "SciFact test split has no public evidence labels; dev is used as the held-out labelled set.",
-    "archive": "https://scifact.s3-us-west-2.amazonaws.com/release/latest/data.tar.gz",
-    "archive_sha256": "11c621288d41ac144d29b13b0f8503b3820b7d6e8b1f6ff24dff335c196d76be",
-    "subset": "balanced 100 of 300 labelled dev claims"
+    "note": "SciFact test split has no public evidence labels; dev is used as the held-out labelled set."
   },
   "settings": {
     "model": "qwen2.5:7b-instruct",
@@ -28,90 +25,95 @@
     "classification_k": 4,
     "max_tokens": 450,
     "repair_explanations": false,
-    "prompt_version": "aegis-claim-verification-v1",
-    "subset": "balanced 100 of 300 labelled dev claims"
+    "prompt_version": "aegis-claim-verification-v1"
   },
   "classification": {
     "n": 100,
     "invalid_records": 0,
-    "accuracy": 0.63,
-    "macro_f1": 0.615181,
+    "accuracy": 0.7,
+    "macro_precision": 0.709586,
+    "macro_recall": 0.674603,
+    "macro_f1": 0.678006,
     "per_class": {
       "SUPPORTED": {
-        "precision": 0.727273,
-        "recall": 0.705882,
-        "f1": 0.716418,
-        "support": 34
+        "precision": 0.789474,
+        "recall": 0.666667,
+        "f1": 0.722892,
+        "support": 45
       },
       "CONTRADICTED": {
-        "precision": 0.666667,
-        "recall": 0.363636,
-        "f1": 0.470588,
-        "support": 33
+        "precision": 0.714286,
+        "recall": 0.5,
+        "f1": 0.588235,
+        "support": 20
       },
       "INSUFFICIENT_EVIDENCE": {
-        "precision": 0.55102,
-        "recall": 0.818182,
-        "f1": 0.658537,
-        "support": 33
+        "precision": 0.625,
+        "recall": 0.857143,
+        "f1": 0.722892,
+        "support": 35
       }
     },
     "confusion_matrix": {
       "SUPPORTED": {
-        "SUPPORTED": 24,
+        "SUPPORTED": 30,
         "CONTRADICTED": 3,
-        "INSUFFICIENT_EVIDENCE": 7
+        "INSUFFICIENT_EVIDENCE": 12
       },
       "CONTRADICTED": {
-        "SUPPORTED": 6,
-        "CONTRADICTED": 12,
-        "INSUFFICIENT_EVIDENCE": 15
+        "SUPPORTED": 4,
+        "CONTRADICTED": 10,
+        "INSUFFICIENT_EVIDENCE": 6
       },
       "INSUFFICIENT_EVIDENCE": {
-        "SUPPORTED": 3,
-        "CONTRADICTED": 3,
-        "INSUFFICIENT_EVIDENCE": 27
+        "SUPPORTED": 4,
+        "CONTRADICTED": 1,
+        "INSUFFICIENT_EVIDENCE": 30
       }
     },
     "false_positive_analysis": {
-      "total": 6,
-      "supported_when_nei": 3,
-      "contradicted_when_nei": 3
+      "total": 5,
+      "supported_when_nei": 4,
+      "contradicted_when_nei": 1
     }
   },
   "retrieval": {
     "recall_at_1": {
       "k": 1,
       "n": 100,
-      "recall": 0.57,
-      "hits": 57
+      "recall": 0.55,
+      "hits": 55
+    },
+    "recall_at_3": {
+      "k": 3,
+      "n": 100,
+      "recall": 0.67,
+      "hits": 67
     },
     "recall_at_5": {
       "k": 5,
       "n": 100,
-      "recall": 0.77,
-      "hits": 77
+      "recall": 0.76,
+      "hits": 76
     },
     "recall_at_10": {
       "k": 10,
       "n": 100,
-      "recall": 0.8,
-      "hits": 80
+      "recall": 0.77,
+      "hits": 77
     },
-    "claims_with_gold_docs": 100
+    "claims_with_gold_docs": 100,
+    "mean_retrieval_ms": 153.59
   },
   "latency": {
     "n": 100,
-    "mean_ms": 24933.393,
-    "median_ms": 22362.67,
-    "p95_ms": 43613.23
+    "mean_ms": 36604.915,
+    "median_ms": 34829.015,
+    "p95_ms": 53697.12
   },
+  "total_claim_processing_seconds": 3660.49,
+  "total_evaluation_seconds": 3663.11,
   "false_positive_examples": [
-    {
-      "claim_id": "13",
-      "gold": "INSUFFICIENT_EVIDENCE",
-      "predicted": "CONTRADICTED"
-    },
     {
       "claim_id": "300",
       "gold": "INSUFFICIENT_EVIDENCE",
@@ -125,7 +127,7 @@
     {
       "claim_id": "354",
       "gold": "INSUFFICIENT_EVIDENCE",
-      "predicted": "CONTRADICTED"
+      "predicted": "SUPPORTED"
     },
     {
       "claim_id": "384",
@@ -140,13 +142,6 @@
   ],
   "predictions_file": "experiments/predictions/scifact_dev_predictions.jsonl",
   "document_id_map_file": "experiments/results/scifact_doc_map.json",
-  "import": {
-    "imported": 5183,
-    "skipped": 0,
-    "passages": 9242,
-    "corpus_documents": 5183,
-    "elapsed_seconds": 15.45,
-    "note": "Measured on the first import; subsequent resume runs skipped the existing corpus."
-  },
-  "generated_at": "2026-11-05T22:29:38.538016+00:00"
+  "import": null,
+  "generated_at": "2026-11-06T06:00:51.477948+00:00"
 }

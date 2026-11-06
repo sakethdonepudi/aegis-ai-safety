@@ -38,7 +38,7 @@ other AI systems, preserve provenance, and support reproducible evaluation.
 | Verification history and session reopening | Working |
 | Document detail API and citation-level evidence links | Working |
 | Evaluation page with measured-results-only view | Working; displays the measured 100-claim SciFact run |
-| SciFact evaluation + metrics harness | Executed on a 100-claim balanced dev subset; macro F1 **0.615**, Recall@10 **0.80** |
+| SciFact evaluation + metrics harness | Executed on 100 label-agnostic dev claims; macro F1 **0.678**, Recall@5 **0.76**, Recall@10 **0.77** |
 | OCR for scanned PDFs, vector retrieval, DOI/Crossref citation checks, authentication | Not implemented |
 
 > AEGIS does not guarantee that research is accurate. An automated judgment is a
@@ -313,8 +313,9 @@ Tested in this build environment:
 - Stage profiling: LLM verification dominated (~86% baseline); concise output reduced
   the measured four-claim profile from 212 s to 90 s without changing classifications
   (see [docs/performance.md](docs/performance.md))
-- SciFact held-out run: 100 balanced dev claims, macro F1 0.615, accuracy 0.630,
-  retrieval Recall@10 0.80, 0 verification errors
+- SciFact held-out run: 100 label-agnostic dev claims, macro F1 0.678, accuracy 0.700,
+  retrieval Recall@5 0.76, Recall@10 0.77, 0 verification errors
+- Controlled real-paper suite: 40/40; hallucination/false-positive suite: 10/10
 
 Not tested here, and therefore not claimed:
 
@@ -355,24 +356,32 @@ SciFact is **not** bundled. Its license is CC BY-NC 2.0, so it must be downloade
 separately and used non-commercially. The official test split does not publish evidence
 labels, so AEGIS uses the labelled **dev** split as the held-out set.
 
-Measured run: **100 balanced claims** (34 supported / 33 contradicted / 33
-insufficient), local `qwen2.5:7b-instruct`, full-corpus Db2-backed BM25.
+Measured run: **first 100 claims by benchmark claim ID**, selected without using gold
+labels (45 supported / 20 contradicted / 35 insufficient), local
+`qwen2.5:7b-instruct`, full-corpus Db2-backed BM25.
 
 | Metric | Value |
 | --- | ---: |
-| Macro F1 | 0.615 |
-| Accuracy | 0.630 |
-| Supported precision / recall / F1 | 0.727 / 0.706 / 0.716 |
-| Contradicted precision / recall / F1 | 0.667 / 0.364 / 0.471 |
-| Insufficient precision / recall / F1 | 0.551 / 0.818 / 0.659 |
-| Retrieval Recall@1 / @5 / @10 | 0.57 / 0.77 / 0.80 |
-| Mean / median / p95 latency | 24.9 s / 22.4 s / 43.6 s |
+| Macro F1 | 0.678 |
+| Accuracy | 0.700 |
+| Supported precision / recall / F1 | 0.789 / 0.667 / 0.723 |
+| Contradicted precision / recall / F1 | 0.714 / 0.500 / 0.588 |
+| Insufficient precision / recall / F1 | 0.625 / 0.857 / 0.723 |
+| Retrieval Recall@1 / @5 / @10 | 0.55 / 0.76 / 0.77 |
+| Mean / median / p95 latency | 36.6 s / 34.8 s / 53.7 s |
 | Verification errors | 0 / 100 |
 
 This is a defined held-out subset, not the full 300-claim split, and not a claim of
 statistical significance. Contradiction recall is the main weakness. Results,
-predictions, document map, and settings are in `experiments/results/` and
-`experiments/predictions/`. No labels are passed to retrieval or the verifier.
+predictions, document map, settings, and the integrity audit are in
+`experiments/results/`, `experiments/predictions/`, and
+`reports/benchmark_integrity.json`. No labels are passed to retrieval or the verifier.
+
+**Revision note:** an earlier report used a 100-claim subset balanced by gold label and
+scored 0.615 macro F1. That selection method is no longer used. On the 87 claims common
+to both runs, scoring pre-fix and final predictions on identical claims gives macro F1
+0.660 → 0.671; see `reports/scifact_analysis.md`. The controlled suite now passes 40/40
+and the hallucination suite 10/10. See `reports/AEGIS_TESTING_MASTER_REPORT.md`.
 
 See [experiments/README.md](experiments/README.md) and
 [docs/performance.md](docs/performance.md).

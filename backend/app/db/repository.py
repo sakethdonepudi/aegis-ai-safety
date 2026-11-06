@@ -36,7 +36,7 @@ class Db2Repository:
 
     # ------------------------------------------------------------------ health
     def health(self) -> dict[str, Any]:
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             row = query_all(
                 connection,
                 "SELECT CURRENT SERVER AS server, CURRENT TIMESTAMP AS now FROM SYSIBM.SYSDUMMY1",
@@ -61,7 +61,7 @@ class Db2Repository:
 
     def table_counts(self) -> dict[str, int]:
         counts: dict[str, int] = {}
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             for table in _TABLES:
                 rows = query_all(connection, f"SELECT COUNT(*) AS total FROM {table}")
                 counts[table.lower()] = int(rows[0]["total"]) if rows else 0
@@ -69,7 +69,7 @@ class Db2Repository:
 
     # --------------------------------------------------------------- documents
     def get_document_by_hash(self, content_hash: str) -> dict | None:
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             rows = query_all(
                 connection,
                 (
@@ -92,7 +92,7 @@ class Db2Repository:
         passages: Iterable[tuple[str, int | None, int | None, int | None]],
         external_id: str | None = None,
     ) -> dict[str, Any]:
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             document_id = insert_returning_id(
                 connection,
                 (
@@ -131,7 +131,7 @@ class Db2Repository:
 
     def list_documents(self, limit: int = 50, *, include_datasets: bool = False) -> list[dict]:
         where = "" if include_datasets else "WHERE D.SOURCE_TYPE <> 'scifact' "
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             return query_all(
                 connection,
                 (
@@ -143,7 +143,7 @@ class Db2Repository:
             )
 
     def get_document(self, document_id: int) -> dict:
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             rows = query_all(
                 connection,
                 (
@@ -198,7 +198,7 @@ class Db2Repository:
             f"WHERE {where} "
             f"ORDER BY P.DOCUMENT_ID, P.PASSAGE_INDEX FETCH FIRST {int(limit)} ROWS ONLY"
         )
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             rows = query_all(connection, sql, params)
         return [
             PassageCandidate(
@@ -219,7 +219,7 @@ class Db2Repository:
         Each item: external_id, title, filename, content_hash, source_type,
         passages: [(text, page_number, char_start, char_end), ...].
         """
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             existing_hashes = {
                 row["content_hash"].strip()
                 for row in query_all(connection, "SELECT CONTENT_HASH FROM DOCUMENTS")
@@ -260,7 +260,7 @@ class Db2Repository:
         return {"imported": imported, "skipped": skipped, "passages": passage_count}
 
     def external_id_map(self, source_type: str) -> dict[int, int]:
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             rows = query_all(
                 connection,
                 "SELECT EXTERNAL_ID, DOCUMENT_ID FROM DOCUMENTS WHERE SOURCE_TYPE = ?",
@@ -276,7 +276,7 @@ class Db2Repository:
 
     def passages_for_source(self, source_type: str) -> list[PassageCandidate]:
         """Load all passages for a dataset source in one Db2 query."""
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             rows = query_all(
                 connection,
                 (
@@ -302,7 +302,7 @@ class Db2Repository:
 
     # ---------------------------------------------------------------- sessions
     def create_session(self, submitted_text: str, model_provider: str) -> int:
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             return insert_returning_id(
                 connection,
                 (
@@ -336,7 +336,7 @@ class Db2Repository:
         error_message: str | None = None,
         duration_ms: int | None = None,
     ) -> None:
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             self._finish_session(connection, session_id, status, error_message, duration_ms)
 
     def mark_session_failed(self, session_id: int, error_message: str, duration_ms: int | None) -> None:
@@ -350,7 +350,7 @@ class Db2Repository:
         duration_ms: int | None = None,
     ) -> None:
         """Persist claims, results, evidence links, and final status atomically."""
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             for claim, assessment in claims:
                 claim_id = insert_returning_id(
                     connection,
@@ -401,7 +401,7 @@ class Db2Repository:
             self._finish_session(connection, session_id, status, None, duration_ms)
 
     def list_sessions(self, limit: int = 25) -> list[dict]:
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             sessions = query_all(
                 connection,
                 (
@@ -432,7 +432,7 @@ class Db2Repository:
         return sessions
 
     def get_session(self, session_id: int) -> dict:
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             sessions = query_all(
                 connection,
                 (
@@ -496,6 +496,6 @@ class Db2Repository:
     # ------------------------------------------------------------- test helper
     def truncate_all(self) -> None:
         """Used only by integration tests and explicit local resets."""
-        with transaction() as connection:
+        with transaction(self.settings) as connection:
             for table in reversed(_TABLES):
                 execute(connection, f"DELETE FROM {table}")

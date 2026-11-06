@@ -54,25 +54,10 @@ DOC_MAP_FILE = ROOT / "experiments" / "results" / "scifact_doc_map.json"
 
 def _select_claims(claims: list[ScifactClaim], limit: int) -> list[ScifactClaim]:
     if limit <= 0 or limit >= len(claims):
-        return claims
-    # Balanced deterministic subset by gold class for stable per-class metrics.
-    buckets: dict[str, list[ScifactClaim]] = {}
-    for claim in claims:
-        buckets.setdefault(claim.gold_label, []).append(claim)
-    selected: list[ScifactClaim] = []
-    order = ["SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"]
-    index = 0
-    while len(selected) < limit:
-        progressed = False
-        for label in order:
-            bucket = buckets.get(label, [])
-            if index < len(bucket) and len(selected) < limit:
-                selected.append(bucket[index])
-                progressed = True
-        if not progressed:
-            break
-        index += 1
-    return sorted(selected, key=lambda claim: int(claim.claim_id))
+        return sorted(claims, key=lambda claim: int(claim.claim_id))
+    # Label-agnostic, deterministic subset: first N by benchmark claim ID. Gold
+    # labels are never consulted when choosing evaluation examples.
+    return sorted(claims, key=lambda claim: int(claim.claim_id))[:limit]
 
 
 def _load_done(path: Path) -> set[str]:
@@ -298,10 +283,13 @@ def main() -> int:
         },
         "classification": classification,
         "retrieval": {
-            **{f"recall_at_{k}": retrieval_recall_at_k(retrieval_gold, retrieval_predicted, k) for k in (1, 5, 10)},
+            **{f"recall_at_{k}": retrieval_recall_at_k(retrieval_gold, retrieval_predicted, k) for k in (1, 3, 5, 10)},
             "claims_with_gold_docs": len(retrieval_gold),
+            "mean_retrieval_ms": round(sum(p["retrieval_ms"] for p in predictions.values()) / len(predictions), 2),
         },
         "latency": latency_stats(latencies),
+        "total_claim_processing_seconds": round(sum(latencies) / 1000, 2),
+        "total_evaluation_seconds": round(retriever.load_seconds + sum(latencies) / 1000, 2),
         "false_positive_examples": false_positive_examples(
             valid_claim_ids, gold_labels, predicted_labels
         ),

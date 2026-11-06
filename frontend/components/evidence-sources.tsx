@@ -42,7 +42,7 @@ export function EvidenceSources({
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="rounded-lg border border-border bg-panel-2/40 p-4">
+    <div className="min-w-0 rounded-lg border border-border bg-panel-2/40 p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-medium text-fg">Evidence sources</p>
@@ -94,17 +94,17 @@ export function EvidenceSources({
               </p>
             </div>
           ) : (
-            <ul className="max-h-[220px] space-y-1.5 overflow-y-auto pr-1">
+            <ul className="max-h-[220px] min-w-0 space-y-1.5 overflow-y-auto pr-1">
               {documents.map((document) => {
                 const selected = selectedIds.includes(document.document_id);
                 return (
-                  <li key={document.document_id}>
+                  <li key={document.document_id} className="min-w-0">
                     <button
                       type="button"
                       onClick={() => onToggle(document.document_id)}
                       aria-pressed={selected}
                       className={cn(
-                        "flex w-full items-start gap-3 rounded-md border px-3 py-2.5 text-left transition-colors",
+                        "flex w-full min-w-0 items-start gap-3 rounded-md border px-3 py-2.5 text-left transition-colors",
                         selected
                           ? "border-accent/40 bg-accent-soft/60"
                           : "border-border bg-panel hover:bg-panel-2"
@@ -123,7 +123,7 @@ export function EvidenceSources({
                           </svg>
                         ) : null}
                       </span>
-                      <span className="min-w-0 flex-1">
+                      <span className="min-w-0 flex-1 overflow-hidden">
                         <span className="block truncate text-xs font-medium text-fg">{document.title}</span>
                         <span className="mt-0.5 block truncate font-mono text-[10px] text-muted">
                           {document.filename} · {document.passage_count} passages · {formatDate(document.created_at)}

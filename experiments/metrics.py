@@ -36,6 +36,8 @@ def classification_metrics(
 
     per_class = {}
     f1_scores = []
+    precision_scores = []
+    recall_scores = []
     for label in labels:
         true_positive = confusion[label][label]
         false_positive = sum(confusion[other][label] for other in labels if other != label)
@@ -51,6 +53,8 @@ def classification_metrics(
             "support": support,
         }
         f1_scores.append(f1)
+        precision_scores.append(precision)
+        recall_scores.append(recall)
 
     total = sum(sum(row.values()) for row in confusion.values())
     correct = sum(confusion[label][label] for label in labels)
@@ -65,6 +69,8 @@ def classification_metrics(
         "n": total,
         "invalid_records": invalid,
         "accuracy": round(_safe_divide(correct, total), 6),
+        "macro_precision": round(mean(precision_scores), 6),
+        "macro_recall": round(mean(recall_scores), 6),
         "macro_f1": round(mean(f1_scores), 6),
         "per_class": per_class,
         "confusion_matrix": confusion,
