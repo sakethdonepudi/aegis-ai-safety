@@ -75,12 +75,16 @@ and not a production-hardened service.
   (34 supported / 33 contradicted / 33 insufficient), not the full split and not the
   hidden-label test split. Macro F1 was 0.615 and retrieval Recall@10 was 0.80 with
   local `qwen2.5:7b-instruct`.
-- These benchmark numbers predate the final QA guardrails; the full benchmark was not
-  rerun after those fixes. The controlled 40-case suite was rerun (38/40 after fixes).
-  See `reports/AEGIS_TESTING_MASTER_REPORT.md`.
-- Contradiction recall (0.364) is the main weakness; 15 of 33 contradicted claims were
-  classified as insufficient evidence. Retrieval Recall@10 (0.80) bounds classification
-  performance.
+- The SciFact subset is selected label-agnostically (first N by benchmark claim ID);
+  gold labels are used only for scoring. See `reports/AEGIS_TESTING_MASTER_REPORT.md`
+  for the final measured run.
+- Contradiction recall remains the main SciFact weakness; retrieval Recall@K bounds
+  classification performance.
+- The controlled 40-case suite passes 40/40 after the retrieval and conflict fixes; the
+  hallucination suite passes 10/10. Both are small controlled suites, not benchmarks.
+- Guards against false certainty (absence, scope, citation, noncomparable conflict) are
+  conservative and pattern-based. They abstain rather than arbitrate and are not a
+  general entailment or meta-analysis engine.
 - This is a single-model, single-run result. Do not claim statistical significance or
   general superiority from it.
 - The Evaluation section shows measured results only when a real metrics file exists;

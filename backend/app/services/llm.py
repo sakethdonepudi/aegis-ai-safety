@@ -80,6 +80,44 @@ class LangChainLLMClient:
             ) from exc
 
 
+def _escape_inner_quotes(text: str) -> str:
+    """Escape unescaped quotes inside JSON string values.
+
+    Local models sometimes quote an excerpt verbatim inside a JSON string
+    without escaping it. A quote is treated as a closing delimiter only when
+    the next non-space character is a JSON separator; otherwise it is data.
+    """
+    output: list[str] = []
+    in_string = False
+    escaped = False
+    for index, char in enumerate(text):
+        if escaped:
+            output.append(char)
+            escaped = False
+            continue
+        if in_string and char == "\\":
+            output.append(char)
+            escaped = True
+            continue
+        if char == '"':
+            if not in_string:
+                in_string = True
+                output.append(char)
+                continue
+            lookahead = index + 1
+            while lookahead < len(text) and text[lookahead] in " \t\r\n":
+                lookahead += 1
+            following = text[lookahead] if lookahead < len(text) else ""
+            if following in ",:}]" or following == "":
+                in_string = False
+                output.append(char)
+            else:
+                output.append('\\"')
+            continue
+        output.append(char)
+    return "".join(output)
+
+
 def extract_json_object(raw: str) -> dict:
     """Parse a JSON object from a model response, tolerating code fences/prose."""
     if not raw or not raw.strip():
@@ -95,7 +133,11 @@ def extract_json_object(raw: str) -> dict:
         end = text.rfind("}")
         if start == -1 or end <= start:
             raise ValueError("No JSON object found in model response")
-        value = json.loads(text[start : end + 1])
+        candidate = text[start : end + 1]
+        try:
+            value = json.loads(candidate)
+        except json.JSONDecodeError:
+            value = json.loads(_escape_inner_quotes(candidate))
     if not isinstance(value, dict):
         raise ValueError("Model response JSON must be an object")
     return value

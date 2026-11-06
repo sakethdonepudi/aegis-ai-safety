@@ -62,16 +62,13 @@ def main() -> int:
     }
     claims = {claim.claim_id: claim for claim in load_scifact_claims(ROOT / "data" / "scifact" / "claims_dev.jsonl")}
     selected_ids = list(predictions.keys())
-
-    # Balanced 20 from the already-evaluated 100; labels are for sampling only.
-    by_label: dict[str, list[str]] = {}
-    for claim_id in selected_ids:
-        by_label.setdefault(claims[claim_id].gold_label, []).append(claim_id)
-    subset: list[str] = []
-    for label in ("SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"):
-        subset.extend(by_label.get(label, [])[:7])
-    subset = subset[:20]
-    print("subset", {label: sum(1 for c in subset if claims[c].gold_label == label) for label in by_label})
+    # Label-agnostic subset: first 20 prediction records in benchmark order.
+    # Gold labels are not used to choose examples.
+    subset = selected_ids[:20]
+    print("subset", {
+        label: sum(1 for c in subset if claims[c].gold_label == label)
+        for label in ("SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE")
+    })
 
     a_records, b_records, ag_records = [], [], []
     for position, claim_id in enumerate(subset, start=1):

@@ -52,9 +52,10 @@ The runner:
 6. scores macro F1, per-class precision/recall, confusion matrix, false positives,
    retrieval Recall@1/5/10, and latency.
 
-`--limit 0` evaluates all 300 labelled dev claims. A nonzero limit creates a
-deterministic balanced subset and is reported explicitly; do not present subset results
-as full-split results.
+`--limit 0` evaluates all 300 labelled dev claims. A nonzero limit selects the first N
+claims by benchmark claim ID. Selection never consults gold labels; labels are used only
+for scoring. Report the subset size explicitly and do not present subset results as
+full-split results.
 
 ### Prediction format
 

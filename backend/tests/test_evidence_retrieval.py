@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.models.domain import ExtractedClaim, PassageCandidate
-from app.services.evidence_retrieval import LexicalRetrievalBackend, tokenize
+from app.services.evidence_retrieval import LexicalRetrievalBackend, expand_tokens, tokenize
 
 
 class FakeRepository:
@@ -44,6 +44,19 @@ def candidate(pid: int, text: str) -> PassageCandidate:
 def test_tokenize_removes_stopwords_and_duplicates():
     tokens = tokenize("The coating, the coating and manufacturing cost by 15%")
     assert tokens == ["coating", "manufacturing", "cost", "15%"]
+
+
+def test_expansion_terms_survive_the_prefilter_cap():
+    claim = ExtractedClaim(
+        original_claim="LoRA stores a complete fine-tuned model copy for every task.",
+        normalized_claim="LoRA stores a complete fine-tuned model copy for every task.",
+        claim_type="FACTUAL",
+    )
+    repository = FakeRepository([])
+    LexicalRetrievalBackend(repository, top_k=3).retrieve(claim, [1])
+    _, tokens = repository.calls[0]
+    assert "checkpoint" in tokens or "weights" in tokens
+    assert len(tokens) <= 16
 
 
 def test_retrieval_ranks_relevant_passage_first():

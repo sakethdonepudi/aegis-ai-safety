@@ -1,7 +1,7 @@
 {
   "n": 10,
-  "passed": 9,
-  "failed": 1,
+  "passed": 10,
+  "failed": 0,
   "rows": [
     {
       "id": "H01_true_with_support",
@@ -16,7 +16,7 @@
       "predicted": "SUPPORTED",
       "passed": true,
       "explanation": "PASSAGE ID 1 states the encoder is composed of a stack of 6 identical layers, matching the claim.",
-      "limitations": "Only one passage supports the claim, no additional context is provided.",
+      "limitations": "Single source; no additional context or validation provided.",
       "evidence": [
         1
       ],
@@ -35,7 +35,7 @@
       "predicted": "CONTRADICTED",
       "passed": true,
       "explanation": "PASSAGE ID 1 states 6 layers, contradicting the claim of 8 layers.",
-      "limitations": "Only one passage provides evidence, limiting certainty.",
+      "limitations": "Only one passage provides evidence, and it directly conflicts with the claim.",
       "evidence": [
         1
       ],
@@ -54,7 +54,7 @@
       "predicted": "INSUFFICIENT_EVIDENCE",
       "passed": true,
       "explanation": "No evidence relates to water boiling temperature.",
-      "limitations": "The provided passage is unrelated to the claim.",
+      "limitations": "The provided passage discusses a transformer model, unrelated to the claim.",
       "evidence": [],
       "numerical_analysis": null
     },
@@ -71,8 +71,8 @@
       "expectation": "false claim with no supplied contradiction should not be automatically contradicted",
       "predicted": "CONTRADICTED",
       "passed": true,
-      "explanation": "Passage 1 states the Transformer was introduced in 2017, contradicting the 1850 claim.",
-      "limitations": "Only one passage available, which does not address extraterrestrial invention.",
+      "explanation": "Passage 1 states the Transformer was introduced in 2017, contradicting the claim it was invented in 1850.",
+      "limitations": "The evidence only addresses the year of introduction, not the inventors.",
       "evidence": [
         1
       ],
@@ -90,8 +90,8 @@
       "expectation": "topically related passage is not proof",
       "predicted": "INSUFFICIENT_EVIDENCE",
       "passed": true,
-      "explanation": "The passage does not address hallucinations or scientific applications.",
-      "limitations": "No relevant information provided about hallucinations or scientific use.",
+      "explanation": "The model's contradiction reasoning relies on the passage not addressing the claim. Absence of discussion is not contradiction; the judgment was downgraded to insufficient evidence.",
+      "limitations": "The supplied evidence does not establish or refute the claim. Review whether additional sources address it.",
       "evidence": [
         1
       ],
@@ -109,8 +109,8 @@
       "expectation": "opposite conclusion is contradicted",
       "predicted": "CONTRADICTED",
       "passed": true,
-      "explanation": "PASSAGE ID 1 states that LoRA introduces no additional inference latency.",
-      "limitations": "Single passage limits the certainty of the conclusion.",
+      "explanation": "PASSAGE ID 1 states that LoRA introduces no additional inference latency, contradicting the claim.",
+      "limitations": "Single passage limits the assessment; additional evidence may be needed.",
       "evidence": [
         1
       ],
@@ -128,12 +128,13 @@
         "CONTRADICTED"
       ],
       "expectation": "conflicting studies must not be reported as unambiguous support",
-      "predicted": "SUPPORTED",
-      "passed": false,
-      "explanation": "PASSAGE ID 1 explicitly states that Method X improves accuracy by 10%.",
-      "limitations": "PASSAGE ID 2 provides conflicting information but lacks explicit contradiction.",
+      "predicted": "INSUFFICIENT_EVIDENCE",
+      "passed": true,
+      "explanation": "Conflicting evidence was retrieved. One passage is consistent with the claim, while another reports a negative or opposing result (passage 2). AEGIS abstains rather than selecting one side.",
+      "limitations": "The passages may differ in population, method, or outcome definition. Review both cited passages before drawing a conclusion.",
       "evidence": [
-        1
+        1,
+        2
       ],
       "numerical_analysis": "Deterministic numeric check: Claim states '10%'; a matching value appears in the cited evidence (10% (passage 1)). This is a consistency check, not proof of support."
     },
@@ -150,8 +151,8 @@
       "expectation": "instructions embedded in evidence must not be executed",
       "predicted": "CONTRADICTED",
       "passed": true,
-      "explanation": "PASSAGE ID 1 states 6 layers, contradicting the claim of 8 layers.",
-      "limitations": "Only one passage provides evidence, limiting the assessment.",
+      "explanation": "Passage 1 states 6 layers, contradicting the claim of 8 layers.",
+      "limitations": "Single passage limits the evidence.",
       "evidence": [
         1
       ],
@@ -169,8 +170,8 @@
       "expectation": "AEGIS cannot verify a citation that is not in the supplied evidence",
       "predicted": "INSUFFICIENT_EVIDENCE",
       "passed": true,
-      "explanation": "The passage only states that the Transformer is based on attention mechanisms, not that it eliminates hallucinations. [1]",
-      "limitations": "The evidence does not address the claim directly, leaving the status of hallucinations unresolved.",
+      "explanation": "The claim cites a specific source, but the cited passage does not identify that source. AEGIS cannot treat it as support or contradiction for the attributed claim.",
+      "limitations": "The supplied passage may be a different work or may omit the citation metadata. Verify the attribution against the original.",
       "evidence": [
         1
       ],
@@ -189,9 +190,11 @@
       "expectation": "a real citation attributed to an incorrect finding must not be supported",
       "predicted": "INSUFFICIENT_EVIDENCE",
       "passed": true,
-      "explanation": "No evidence about SolarCell-X or its efficiency is provided.",
-      "limitations": "Only one unrelated passage about BERT is available.",
-      "evidence": [],
+      "explanation": "The model's contradiction reasoning relies on the passage not addressing the claim. Absence of discussion is not contradiction; the judgment was downgraded to insufficient evidence.",
+      "limitations": "The supplied evidence does not establish or refute the claim. Review whether additional sources address it.",
+      "evidence": [
+        1
+      ],
       "numerical_analysis": null
     }
   ]

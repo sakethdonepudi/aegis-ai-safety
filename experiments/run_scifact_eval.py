@@ -54,25 +54,10 @@ DOC_MAP_FILE = ROOT / "experiments" / "results" / "scifact_doc_map.json"
 
 def _select_claims(claims: list[ScifactClaim], limit: int) -> list[ScifactClaim]:
     if limit <= 0 or limit >= len(claims):
-        return claims
-    # Balanced deterministic subset by gold class for stable per-class metrics.
-    buckets: dict[str, list[ScifactClaim]] = {}
-    for claim in claims:
-        buckets.setdefault(claim.gold_label, []).append(claim)
-    selected: list[ScifactClaim] = []
-    order = ["SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"]
-    index = 0
-    while len(selected) < limit:
-        progressed = False
-        for label in order:
-            bucket = buckets.get(label, [])
-            if index < len(bucket) and len(selected) < limit:
-                selected.append(bucket[index])
-                progressed = True
-        if not progressed:
-            break
-        index += 1
-    return sorted(selected, key=lambda claim: int(claim.claim_id))
+        return sorted(claims, key=lambda claim: int(claim.claim_id))
+    # Label-agnostic, deterministic subset: first N by benchmark claim ID. Gold
+    # labels are never consulted when choosing evaluation examples.
+    return sorted(claims, key=lambda claim: int(claim.claim_id))[:limit]
 
 
 def _load_done(path: Path) -> set[str]:

@@ -11,7 +11,7 @@ import time
 
 from app.db.repository import Db2Repository
 from app.models.domain import ExtractedClaim, PassageCandidate
-from app.services.evidence_retrieval import _bm25_scores, tokenize
+from app.services.evidence_retrieval import _bm25_scores, expand_tokens, tokenize
 
 
 class CorpusBM25Index:
@@ -22,7 +22,9 @@ class CorpusBM25Index:
         self.load_seconds = time.monotonic() - started
 
     def retrieve(self, claim: ExtractedClaim, top_k: int = 10) -> list[PassageCandidate]:
-        claim_tokens = tokenize(f"{claim.original_claim} {claim.normalized_claim}")
+        claim_tokens = expand_tokens(
+            tokenize(f"{claim.original_claim} {claim.normalized_claim}")
+        )
         if not claim_tokens or not self.passages:
             return []
         scores = _bm25_scores(claim_tokens, self.tokens)

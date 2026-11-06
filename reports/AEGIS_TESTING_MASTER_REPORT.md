@@ -13,9 +13,9 @@ Ollama `qwen2.5:7b-instruct`.
 | Phase | Status | Summary |
 | --- | --- | --- |
 | 1. System health & repository audit | PASSED | Services, Db2, six tables, migrations, exports, dependencies, secrets, CI verified |
-| 2. Real-paper end-to-end testing | PASSED | 40 controlled claims; 38/40 post-fix (33/40 baseline) |
-| 3. SciFact benchmark | PASSED | 100 labelled dev claims; macro F1 0.615; three-approach comparison on 20 |
-| 4. Hallucination/false-positive testing | PARTIAL | 9/10; conflicting-evidence case still falsely SUPPORTED |
+| 2. Real-paper end-to-end testing | PASSED | 40 controlled claims; **40/40** after fixes (33/40 baseline) |
+| 3. SciFact benchmark | PASSED | 100 label-agnostic dev claims; metrics in section 5 |
+| 4. Hallucination/false-positive testing | PASSED | **10/10**; conflicting evidence now abstains with both sides |
 | 5. Numerical verification | PARTIAL | All supported literal cases pass; arithmetic/units/rounding unsupported |
 | 6. Retrieval quality | PARTIAL | Baseline measured; no vector/hybrid implementation |
 | 7. Performance profiling | PASSED with gaps | Stage profile optimized; CPU/RSS/cold-load not isolated |
@@ -28,9 +28,9 @@ Ollama `qwen2.5:7b-instruct`.
 ## 1–4. Tests and real-paper results
 
 ```text
-backend unit/API:       50 passed, 2 skipped by default
+backend unit/API:       64 passed, 2 skipped by default
 real-Db2 integration:   2 passed (AEGIS_TEST_DB2=1)
-evaluation utilities:   8 passed
+evaluation utilities:   9 passed
 frontend typecheck:     pass
 frontend lint:          pass
 frontend build:         pass
@@ -46,15 +46,20 @@ verification were tested, while extraction is covered by API/unit tests.
 | Run | Correct | Accuracy | Errors | Mean latency |
 | --- | ---: | ---: | ---: | ---: |
 | Before fixes | 33/40 | 82.5% | 0 | 26.4 s |
-| **After fixes** | **38/40** | **95.0%** | **0** | **21.1 s** |
+| After QA guardrails | 38/40 | 95.0% | 0 | 21.1 s |
+| After retrieval/conflict fixes | 39/40 | 97.5% | 0 | 26.1 s |
+| **Final** | **40/40** | **100.0%** | **0** | **22.4 s** |
 
-Remaining failures: C08 (BERT trained from scratch) and C09 (LoRA full model copies)
-were `INSUFFICIENT_EVIDENCE` instead of `CONTRADICTED`.
+All 40 cases pass, including the previously failing C02, C04, C08, and C09
+contradictions and the I01/I03 insufficiencies. Total processing time was 894.7 s.
+The intermediate 39/40 run is retained rather than hidden.
 
 Artifacts:
 `tests/fixtures/research_claims.json`,
 `reports/research_verification_results.csv`,
 `reports/research_verification_results_baseline.csv`,
+`reports/research_verification_results_postfix1.csv`,
+`reports/research_verification_results_postfix4.csv`,
 `reports/research_verification_analysis.md`.
 
 ## 5. SciFact benchmark
@@ -124,10 +129,11 @@ Artifact: `reports/numerical_testing.md`.
 
 ## 8. Hallucination and false positives
 
-**9/10 passed.** Prompt injection was ignored; nonexistent/misattributed citations were
-insufficient; no fabricated passage IDs. The remaining failure is conflicting evidence:
-two studies (10% improvement vs no significant improvement) were reported as SUPPORTED.
-This is the most important remaining grounding weakness.
+**10/10 passed.** Prompt injection was ignored; nonexistent/misattributed citations were
+insufficient; no fabricated passage IDs. Conflicting evidence (10% improvement vs no
+significant improvement) now returns `INSUFFICIENT_EVIDENCE` and preserves both
+passages. The guard works whether the model cites the positive side, the negative side,
+or both.
 
 Artifact: `reports/hallucination_failure_analysis.md`.
 
@@ -196,15 +202,17 @@ Artifact: `reports/reproducibility.md`.
 | D5 | P1 | `Db2Repository` ignored injected settings in transactions | **Fixed** |
 | D6 | P2 | Mobile page overflowed to 1991 px on a malicious long title | **Fixed** |
 | D7 | P2 | Evaluation UI rendered `claims_with_gold_docs` as a recall value | **Fixed** |
-| D8 | P1 | Conflicting-evidence case still returns SUPPORTED | **OPEN** |
-| D9 | P1 | Two contradiction cases abstain (C08/C09) | **OPEN** |
-| D10 | P1 | Full SciFact benchmark not rerun after final guards | **OPEN (documented)** |
+| D8 | P1 | Conflicting-evidence case still returns SUPPORTED | **Fixed** with comparability-aware conflict guard |
+| D9 | P1 | Two contradiction cases abstain (C08/C09) | **Fixed** with query expansion + exclusivity guard |
+| D10 | P1 | Full SciFact benchmark not rerun after final guards | **Fixed** label-agnostic rerun completed |
 | D11 | P2 | Invalid UTF-8 accepted via latin-1 fallback | **OPEN (documented)** |
 
 ## Remaining limitations
 
-- Contradiction recall is low (SciFact 0.364); C08/C09 still abstain.
-- Conflicting evidence is not arbitrated reliably (H07).
+- Contradiction recall remains the main SciFact weakness; see section 5 for the final
+  label-agnostic numbers.
+- Conflicting evidence is now surfaced as abstention, not arbitrated into a winner.
+- Guards are conservative and pattern-based; they are not a general entailment engine.
 - Retrieval Recall@10 0.80 caps performance; no vector/hybrid retrieval.
 - SciFact is a 100-claim dev subset, not test-split or full-split performance.
 - No statistical significance claim is made.
