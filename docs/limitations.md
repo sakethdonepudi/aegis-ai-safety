@@ -71,10 +71,11 @@ and not a production-hardened service.
 - SciFact is **not** bundled and is licensed CC BY-NC 2.0 (non-commercial).
 - The harness supports macro F1, per-class precision/recall, confusion matrix,
   false-positive analysis, retrieval Recall@K, and latency statistics.
-- The measured run used a **balanced 100-claim subset of the 300 labelled dev claims**
-  (34 supported / 33 contradicted / 33 insufficient), not the full split and not the
-  hidden-label test split. Macro F1 was 0.615 and retrieval Recall@10 was 0.80 with
-  local `qwen2.5:7b-instruct`.
+- The measured run used the **first 100 claims by benchmark claim ID** from the 300
+  labelled dev claims, selected without consulting gold labels (45 supported / 20
+  contradicted / 35 insufficient). It is not the full split and not the hidden-label
+  test split. Macro F1 was 0.678, Recall@5 0.76, and Recall@10 0.77 with local
+  `qwen2.5:7b-instruct`.
 - The SciFact subset is selected label-agnostically (first N by benchmark claim ID);
   gold labels are used only for scoring. See `reports/AEGIS_TESTING_MASTER_REPORT.md`
   for the final measured run.

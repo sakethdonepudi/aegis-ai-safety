@@ -387,28 +387,28 @@
     "recall_at_1": {
       "k": 1,
       "n": 100,
-      "recall": 0.57,
-      "hits": 57
+      "recall": 0.55,
+      "hits": 55
     },
     "recall_at_3": {
       "k": 3,
       "n": 100,
-      "recall": 0.71,
-      "hits": 71
+      "recall": 0.67,
+      "hits": 67
     },
     "recall_at_5": {
       "k": 5,
       "n": 100,
-      "recall": 0.77,
-      "hits": 77
+      "recall": 0.76,
+      "hits": 76
     },
     "recall_at_10": {
       "k": 10,
       "n": 100,
-      "recall": 0.8,
-      "hits": 80
+      "recall": 0.77,
+      "hits": 77
     },
     "claims_with_gold": 100,
-    "retrieval_mean_ms": 284.4
+    "retrieval_mean_ms": 153.59
   }
 }

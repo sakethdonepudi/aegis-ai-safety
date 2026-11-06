@@ -20,7 +20,7 @@ Screenshots: `reports/screenshots/ui-desktop.png`, `reports/screenshots/ui-mobil
 | Verification history | PASSED | Session #501 reopened |
 | JSON download | PASSED | `aegis-session-501.json` |
 | Markdown download | PASSED | `aegis-session-501.md` |
-| Evaluation dashboard | PASSED | Actual macro F1 0.615 and Recall@10 0.80 displayed |
+| Evaluation dashboard | PASSED | Actual measured metrics from the results file displayed (run at QA time: macro F1 0.615, Recall@10 0.80) |
 | Desktop layout | PASSED | 1560×1180; no console errors |
 | Mobile layout | PASSED after fix | 390 px; scrollWidth = 390 = viewport |
 | Keyboard navigation | PASSED | Focus reaches nav links, theme toggle, demo buttons |

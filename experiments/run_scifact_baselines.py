@@ -96,7 +96,7 @@ def main() -> int:
         ]}
 
     result = {
-        "dataset": "SciFact dev balanced subset",
+        "dataset": "SciFact dev label-agnostic subset (first 20 by claim ID)",
         "n": len(subset),
         "model": "qwen2.5:7b-instruct",
         "retrieval": "full-corpus BM25, top 4",

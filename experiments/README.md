@@ -72,29 +72,30 @@ they are never passed to retrieval or the verifier.
 
 ## Latest results
 
-Measured on 2026-11-06 with local `qwen2.5:7b-instruct`, a balanced 100-claim subset of
-the labelled dev split (34/33/33), full-corpus Db2-backed BM25, top-4 passages for the
-verifier:
+Measured on 2026-11-06 with local `qwen2.5:7b-instruct`, the first 100 claims by
+benchmark claim ID (selected without gold labels; 45/20/35), full-corpus Db2-backed
+BM25, top-4 passages for the verifier:
 
 | Metric | Value |
 | --- | ---: |
-| Macro F1 | 0.615 |
-| Accuracy | 0.630 |
-| SUPPORTED P / R / F1 | 0.727 / 0.706 / 0.716 |
-| CONTRADICTED P / R / F1 | 0.667 / 0.364 / 0.471 |
-| INSUFFICIENT P / R / F1 | 0.551 / 0.818 / 0.659 |
-| Recall@1 / @5 / @10 | 0.57 / 0.77 / 0.80 |
-| Mean / median / p95 latency | 24.9 s / 22.4 s / 43.6 s |
+| Macro F1 | 0.678 |
+| Accuracy | 0.700 |
+| SUPPORTED P / R / F1 | 0.789 / 0.667 / 0.723 |
+| CONTRADICTED P / R / F1 | 0.714 / 0.500 / 0.588 |
+| INSUFFICIENT P / R / F1 | 0.625 / 0.857 / 0.723 |
+| Recall@1 / @5 / @10 | 0.55 / 0.76 / 0.77 |
+| Mean / median / p95 latency | 36.6 s / 34.8 s / 53.7 s |
 | Errors / coverage | 0 / 1.0 |
 
 Results: [`results/scifact_dev_metrics.json`](results/scifact_dev_metrics.json).
 Predictions: [`predictions/scifact_dev_predictions.jsonl`](predictions/scifact_dev_predictions.jsonl).
 Document map: [`results/scifact_doc_map.json`](results/scifact_doc_map.json).
+Integrity audit: `../reports/benchmark_integrity.json`.
 Import: 5,183 abstracts → 9,242 passages in 15.45 s.
 
 The test split has no public evidence labels; the dev split is the held-out labelled
 set. This is a subset, not the full 300 claims, and not a claim of statistical
-significance.
+significance. The 20-claim baseline comparison is in `../reports/scifact_baselines.json`.
 
 ## Performance
 

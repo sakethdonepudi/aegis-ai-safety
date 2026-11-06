@@ -1,7 +1,8 @@
 # AEGIS Testing Master Report
 
-**Tested commit:** `70bd714` (main). QA fixes are on `quality/comprehensive-validation`.
-The brief referenced `7619ae2`; main had advanced through PRs #2 and #3.
+**Tested branch:** `quality/comprehensive-validation` (PR #4). Comprehensive QA started
+from `70bd714`; the final code and evaluation artifacts are in the PR commits. The brief
+referenced `7619ae2`; main had advanced through PRs #2 and #3.
 
 **Date:** 2026-11-06  
 **Environment:** macOS Apple Silicon, 8 GB RAM, Python 3.11.9, Node 20.17.0,
@@ -14,7 +15,7 @@ Ollama `qwen2.5:7b-instruct`.
 | --- | --- | --- |
 | 1. System health & repository audit | PASSED | Services, Db2, six tables, migrations, exports, dependencies, secrets, CI verified |
 | 2. Real-paper end-to-end testing | PASSED | 40 controlled claims; **40/40** after fixes (33/40 baseline) |
-| 3. SciFact benchmark | PASSED | 100 label-agnostic dev claims; metrics in section 5 |
+| 3. SciFact benchmark | PASSED | 100 label-agnostic dev claims; macro F1 0.678, Recall@5 0.76 |
 | 4. Hallucination/false-positive testing | PASSED | **10/10**; conflicting evidence now abstains with both sides |
 | 5. Numerical verification | PARTIAL | All supported literal cases pass; arithmetic/units/rounding unsupported |
 | 6. Retrieval quality | PARTIAL | Baseline measured; no vector/hybrid implementation |
@@ -65,54 +66,63 @@ Artifacts:
 ## 5. SciFact benchmark
 
 The official test split has no public evidence labels, so the labelled **dev** split
-was used as held-out data. A deterministic balanced 100-claim subset (34/33/33) was
-evaluated. Gold labels were never passed to retrieval or verification.
+was used as held-out data. The final run uses the **first 100 claims by benchmark claim
+ID** and never consults gold labels for selection. The resulting distribution is
+45 SUPPORTED / 20 CONTRADICTED / 35 INSUFFICIENT. The earlier balanced 34/33/33 subset
+was label-selected and is retained only for the same-claims comparison.
 
 | Metric | Result |
 | --- | ---: |
-| Accuracy | 0.630 |
-| Macro precision / recall / F1 | 0.648 / 0.629 / **0.615** |
-| Supported P / R / F1 | 0.727 / 0.706 / 0.716 |
-| Contradicted P / R / F1 | 0.667 / 0.364 / 0.471 |
-| Insufficient P / R / F1 | 0.551 / 0.818 / 0.659 |
-| Retrieval Recall@1 / @3 / @5 / @10 | 0.57 / 0.71 / 0.77 / 0.80 |
-| Mean / median / p95 latency | 24.93 / 22.36 / 43.61 s |
+| Accuracy | 0.700 |
+| Macro precision / recall / F1 | 0.710 / 0.675 / **0.678** |
+| Supported P / R / F1 | 0.789 / 0.667 / 0.723 |
+| Contradicted P / R / F1 | 0.714 / 0.500 / 0.588 |
+| Insufficient P / R / F1 | 0.625 / 0.857 / 0.723 |
+| Retrieval Recall@1 / @3 / @5 / @10 | 0.55 / 0.67 / 0.76 / 0.77 |
+| Mean / median / p95 latency | 36.60 / 34.83 / 53.70 s |
 | Errors / coverage | 0 / 1.0 |
 
 Confusion matrix (gold rows / predicted columns):
 
 | Gold \ Pred | Supported | Contradicted | Insufficient |
 | --- | ---: | ---: | ---: |
-| Supported | 24 | 3 | 7 |
-| Contradicted | 6 | 12 | 15 |
-| Insufficient | 3 | 3 | 27 |
+| Supported | 30 | 3 | 12 |
+| Contradicted | 4 | 10 | 6 |
+| Insufficient | 4 | 1 | 30 |
 
-**Important revision note:** these 100-claim metrics were measured on the pre-QA-fix
-pipeline. During QA, one percent-override false positive was found and the numeric
-guard was hardened. The full 100-claim benchmark was not rerun after that change; the
-40-case suite was rerun (33→38/40). Treat these SciFact numbers as the measured
-baseline for `70bd714`, not as post-fix results.
+The new 0.678 macro F1 is **not** directly comparable to the old 0.615 balanced-subset
+number because the class distribution changed. On the 87 claims present in both runs,
+scoring the preserved pre-fix predictions and the final predictions on identical claims
+gives macro F1 0.660 → 0.671 and contradiction F1 0.514 → 0.588, with accuracy unchanged
+at 0.690. Supported recall fell (0.706 → 0.647), so the change is a trade-off, not a
+uniform improvement.
 
-### Three-approach comparison (20 balanced claims)
+Integrity checks (`reports/benchmark_integrity.json`): flipping every gold label does not
+change selection; no prediction record contains a gold field; all 139 cited passage IDs
+exist and belong to a retrieved document.
+
+### Three-approach comparison (first 20 label-agnostic claims)
 
 Same model/temperature; B and AEGIS receive the same top-4 retrieved passages.
 
 | Approach | Accuracy | Macro F1 |
 | --- | ---: | ---: |
-| A: LLM only, no evidence | 0.500 | 0.509 |
-| B: LLM + retrieved passages | 0.700 | 0.692 |
-| AEGIS complete pipeline | 0.700 | **0.701** |
+| A: LLM only, no evidence | 0.450 | 0.458 |
+| B: LLM + retrieved passages | 0.700 | 0.623 |
+| AEGIS complete pipeline | 0.700 | **0.674** |
 
-The AEGIS advantage over B is **0.009 macro F1**, far too small to claim significance.
-Artifacts: `reports/scifact_metrics.json`, `reports/scifact_baselines.json`,
-`reports/scifact_analysis.md`.
+The AEGIS advantage over B is **0.051 macro F1** on 20 claims, with contradiction recall
+0.40 vs 0.20. This is too small a sample to claim significance.
+Artifacts: `experiments/results/scifact_dev_metrics.json`,
+`reports/scifact_baselines.json`, `reports/scifact_analysis.md`,
+`reports/benchmark_integrity.json`.
 
 ## 6. Retrieval quality
 
 - Controlled 30 claims with a gold paper: Recall@1 **0.80**, Recall@3 **0.967**,
   Recall@5 **0.967**; mean 2.56 ms.
-- SciFact 100: Recall@1 **0.57**, @3 **0.71**, @5 **0.77**, @10 **0.80**; mean
-  284 ms/claim.
+- SciFact 100 (label-agnostic): Recall@1 **0.55**, @3 **0.67**, @5 **0.76**, @10
+  **0.77**; mean 154 ms/claim for in-memory BM25 after the one-time Db2 load.
 - No native Db2 vector retrieval or external vector DB was used. This is a documented
   gap, not a substitution.
 
@@ -213,7 +223,8 @@ Artifact: `reports/reproducibility.md`.
   label-agnostic numbers.
 - Conflicting evidence is now surfaced as abstention, not arbitrated into a winner.
 - Guards are conservative and pattern-based; they are not a general entailment engine.
-- Retrieval Recall@10 0.80 caps performance; no vector/hybrid retrieval.
+- Retrieval Recall@5 0.76 and Recall@10 0.77 cap performance; no vector/hybrid
+  retrieval.
 - SciFact is a 100-claim dev subset, not test-split or full-split performance.
 - No statistical significance claim is made.
 - Numerical arithmetic, units, negative signs, rounding, and metric binding remain
@@ -224,7 +235,7 @@ Artifact: `reports/reproducibility.md`.
 
 ## Recommendations for the hackathon demonstration
 
-1. Demonstrate the 38/40 controlled paper suite and the real evidence inspector, not a
+1. Demonstrate the 40/40 controlled paper suite and the real evidence inspector, not a
    single happy-path claim.
 2. Show the SciFact metrics with the subset/model/revision caveats and the baseline
    comparison.

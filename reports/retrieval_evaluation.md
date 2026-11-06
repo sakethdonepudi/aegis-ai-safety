@@ -8,8 +8,9 @@ retrieval filters.
 - **Controlled suite:** 30 claims with a documented gold paper among the three uploaded
   papers (supported, contradicted, and numerical cases). The ten insufficient-evidence
   cases have no gold paper and are excluded from paper-level recall.
-- **SciFact:** 100-claim balanced development subset; gold `cited_doc_ids` mapped to
-  internal Db2 document IDs; predictions from the completed run.
+- **SciFact:** first 100 claims by benchmark ID (label-agnostic); gold
+  `cited_doc_ids` mapped to internal Db2 document IDs; predictions from the completed
+  run.
 - Retrieval uses full-corpus BM25 over passages loaded from Db2. The production API
   uses a document-filtered SQL prefilter + BM25 for user-selected documents.
 
@@ -34,14 +35,14 @@ claim wording is dominated by “convolutional neural network.”
 
 | Metric | Result |
 | --- | ---: |
-| Recall@1 | 0.570 |
-| Recall@3 | 0.710 |
-| Recall@5 | 0.770 |
-| Recall@10 | 0.800 |
-| Mean retrieval latency | 284.4 ms |
+| Recall@1 | 0.550 |
+| Recall@3 | 0.670 |
+| Recall@5 | 0.760 |
+| Recall@10 | 0.770 |
+| Mean retrieval latency | 153.6 ms |
 
-Retrieval is the practical ceiling: 20% of claims do not have a gold document in the
-top 10, and only 57% have it at rank 1.
+Retrieval is the practical ceiling: 23% of claims do not have a gold document in the
+top 10, and only 55% have it at rank 1.
 
 ## False matches and observations
 
