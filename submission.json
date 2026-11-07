@@ -5,11 +5,25 @@
   "repository": "https://github.com/sakethdonepudi/aegis-ai-safety",
   "version": "0.2.0",
   "hackathon": "Db2Hack 2026",
-  "status": "Working vertical slice with report export, document inspection, numeric checks, evaluation empty state, and a real-paper demo",
+  "status": "Final release: verification engine frozen; local smoke test, tests, and production build pass",
   "category": "AI Safety / Trustworthy AI / Research Infrastructure",
   "stack": {
-    "frontend": ["Next.js App Router", "TypeScript", "Tailwind CSS", "shadcn/ui", "Lucide", "Recharts"],
-    "backend": ["Python", "FastAPI", "Pydantic", "Uvicorn", "HTTPX", "PyMuPDF"],
+    "frontend": [
+      "Next.js App Router",
+      "TypeScript",
+      "Tailwind CSS",
+      "shadcn/ui",
+      "Lucide",
+      "Recharts"
+    ],
+    "backend": [
+      "Python",
+      "FastAPI",
+      "Pydantic",
+      "Uvicorn",
+      "HTTPX",
+      "PyMuPDF"
+    ],
     "database": "IBM Db2 Community Edition 12.1.5",
     "ai_orchestration": "LangChain with a configurable OpenAI-compatible chat model",
     "documents": "PyMuPDF"
@@ -40,7 +54,10 @@
     "JSON and Markdown report export",
     "Verification history and session reopening",
     "Document detail API and evaluation status endpoint",
-    "SciFact evaluation harness executed on a 100-claim balanced dev subset"
+    "Comparability-aware conflicting-evidence abstention",
+    "Absence, scope, and citation guards against forced contradictions",
+    "SciFact evaluation harness with label-agnostic subset selection",
+    "Benchmark-integrity audit for labels, selection, and evidence attribution"
   ],
   "classifications": [
     "SUPPORTED",
@@ -75,6 +92,20 @@
         "insufficient_evidence": 1,
         "verification_error": 0
       }
+    },
+    "verified_outcome": {
+      "session_id": 741,
+      "total_claims": 3,
+      "supported": 1,
+      "contradicted": 1,
+      "insufficient_evidence": 1,
+      "verification_error": 0,
+      "pdf": "BERT: Pre-training of Deep Bidirectional Transformers",
+      "exports": [
+        "json",
+        "markdown"
+      ],
+      "persisted_in_db2": true
     }
   },
   "evaluation": {
@@ -83,17 +114,17 @@
     "license": "CC BY-NC 2.0",
     "benchmark_executed": true,
     "evaluated_claims": 100,
-    "subset": "balanced 100 of 300 labelled dev claims",
+    "subset": "label-agnostic first 100 by benchmark claim ID (45 supported / 20 contradicted / 35 insufficient)",
     "model": "qwen2.5:7b-instruct (local Ollama)",
-    "macro_f1": 0.615,
-    "accuracy": 0.63,
+    "macro_f1": 0.678,
+    "accuracy": 0.7,
     "retrieval_recall": {
-      "at_1": 0.57,
-      "at_5": 0.77,
-      "at_10": 0.8
+      "at_1": 0.55,
+      "at_5": 0.76,
+      "at_10": 0.77
     },
     "verification_errors": 0,
-    "mean_latency_ms": 24933.393,
+    "mean_latency_ms": 36604.915,
     "results_file": "experiments/results/scifact_dev_metrics.json",
     "results_exposed_only_if_present": true,
     "metrics_implemented": [
@@ -104,7 +135,13 @@
       "false_positive_analysis",
       "retrieval_recall_at_k",
       "latency"
-    ]
+    ],
+    "contradiction_precision": 0.714,
+    "contradiction_recall": 0.5,
+    "same_87_claim_before_after": {
+      "old_macro_f1": 0.66,
+      "new_macro_f1": 0.671
+    }
   },
   "documentation": {
     "architecture": "docs/architecture.md",
@@ -116,5 +153,5 @@
     "limitations": "docs/limitations.md",
     "research": "research/methodology.md"
   },
-  "submission_notes": "No public Db2Hack organizer submission template/repository was discoverable at build time. This file is project metadata; adapt field names if the organizers publish a required schema."
+  "submission_notes": "Official organizer submission is prepared in submissions/aegis-ai-safety/ of the organizer repository fork; this file remains project metadata."
 }

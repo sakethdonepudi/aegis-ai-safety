@@ -212,7 +212,9 @@ The paper demo uses *Attention Is All You Need* and *BERT* as evidence. It conta
 claims designed to exercise supported, contradicted, insufficient-evidence, and
 numerical-discrepancy outcomes. The summary text is synthetic; the evidence is real.
 Classifications are produced by the configured LLM through the real pipeline and a
-deterministic numeric check; nothing is hardcoded. See [docs/demo.md](docs/demo.md).
+deterministic numeric check; nothing is hardcoded. See [docs/demo.md](docs/demo.md)
+and the five-minute [demo script](docs/demo-script.md). A short reusable project
+description is in [docs/project-description.md](docs/project-description.md).
 
 ## API
 
